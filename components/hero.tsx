@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Terminal } from "lucide-react"
+import logo from "@/public/logo.png"
 
 export function Hero() {
   return (
@@ -36,7 +37,7 @@ export function Hero() {
           </div>
           <div className="hidden lg:block">
             <Image
-              src="/logo.png"
+              src={logo}
               alt="doklab"
               width={500}
               height={500}

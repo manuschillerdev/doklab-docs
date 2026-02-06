@@ -4,6 +4,7 @@ import { getPageMap } from 'nextra/page-map'
 import Image from 'next/image'
 import Link from 'next/link'
 import 'nextra-theme-docs/style.css'
+import logo from '@/public/logo.png'
 
 export default async function DocsLayout({
   children,
@@ -16,7 +17,7 @@ export default async function DocsLayout({
     <Navbar
       logo={
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Image src="/logo.png" alt="doklab" width={28} height={28} className="rounded" />
+          <Image src={logo} alt="doklab" width={28} height={28} className="rounded" />
           <span className="font-mono font-bold">doklab</span>
         </Link>
       }
