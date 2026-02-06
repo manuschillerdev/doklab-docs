@@ -8,7 +8,7 @@ import { Footer } from "@/components/footer"
 
 export default function HomePage() {
   return (
-    <main className="h-screen overflow-y-auto bg-black dark snap-y snap-mandatory">
+    <main className="min-h-screen lg:h-screen overflow-y-auto bg-black dark lg:snap-y lg:snap-mandatory">
       <Header />
       <Hero />
       <FeaturesMobile />
