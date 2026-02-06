@@ -13,7 +13,7 @@ const withNextra = nextra({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  basePath: isGitHubPages ? '/doklabv2' : '',
+  basePath: isGitHubPages ? '/doklab-docs' : '',
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
