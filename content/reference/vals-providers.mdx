@@ -1,0 +1,428 @@
+# Vals Providers Reference
+
+Complete reference for secret providers supported via [vals](https://github.com/helmfile/vals) CLI integration.
+
+import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+
+<Callout type="warning">
+  **Required**: The `vals` CLI must be installed for secret resolution. See [Installation](/docs/getting-started/installation#installing-vals).
+</Callout>
+
+## Provider Matrix
+
+| Provider | Syntax | Auth Environment Variables | Status |
+|----------|--------|---------------------------|--------|
+| [SOPS](#sops) | `ref+sops://` | `SOPS_AGE_KEY_FILE` | Recommended |
+| [HashiCorp Vault](#hashicorp-vault) | `ref+vault://` | `VAULT_ADDR`, `VAULT_TOKEN` | Tested |
+| [AWS Secrets Manager](#aws-secrets-manager) | `ref+awssecrets://` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Tested |
+| [AWS SSM Parameter Store](#aws-ssm-parameter-store) | `ref+awsssm://` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Tested |
+| [GCP Secret Manager](#gcp-secret-manager) | `ref+gcpsecrets://` | `GOOGLE_APPLICATION_CREDENTIALS` | Supported |
+| [Azure Key Vault](#azure-key-vault) | `ref+azurekeyvault://` | Azure Identity chain | Supported |
+| [1Password](#1password) | `ref+onepassword://` | `OP_SERVICE_ACCOUNT_TOKEN` | Supported |
+| [Doppler](#doppler) | `ref+doppler://` | `DOPPLER_TOKEN` | Supported |
+| [Environment](#environment-variables) | `ref+env://` | - | Built-in |
+| [File](#file) | `ref+file://` | - | Built-in |
+
+<Callout type="info">
+  **Recommended** = Primary supported provider with full testing
+  **Tested** = Verified working with doklab
+  **Supported** = Available via vals but not extensively tested with doklab
+</Callout>
+
+---
+
+## SOPS
+
+Mozilla SOPS with age encryption. **Recommended for most users.**
+
+### Syntax
+
+```
+ref+sops://path/to/file.yaml#/json/path
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SOPS_AGE_KEY_FILE` | Yes | Path to age private key file |
+
+doklab automatically sets this to `~/.doklab/age.key` if not specified.
+
+### Path Resolution
+
+SOPS paths are resolved **relative to the compose file directory**:
+
+```yaml
+# Project at /home/user/projects/myapp/docker-compose.yml
+
+# Relative path - looks in /home/user/projects/myapp/secrets.yaml
+doklab.secret.env.KEY: ref+sops://secrets.yaml#/api_key
+
+# Parent directory - looks in /home/user/projects/secrets.yaml
+doklab.secret.env.KEY: ref+sops://../secrets.yaml#/api_key
+
+# Absolute path
+doklab.secret.env.KEY: ref+sops:///etc/doklab/secrets.yaml#/api_key
+```
+
+### Examples
+
+```yaml
+# Simple key
+doklab.secret.env.API_KEY: ref+sops://secrets.yaml#/api_key
+
+# Nested path
+doklab.secret.env.DB_PASS: ref+sops://secrets.yaml#/database/password
+
+# Array access
+doklab.secret.env.FIRST_KEY: ref+sops://secrets.yaml#/keys/0
+```
+
+### Notes
+
+- Age encryption is strongly recommended over PGP
+- SOPS files can be YAML, JSON, or dotenv format
+- The `#/path` uses JSON Pointer syntax
+
+---
+
+## HashiCorp Vault
+
+### Syntax
+
+```
+ref+vault://server:port/path/to/secret#/key[?param=value]
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VAULT_ADDR` | Yes* | Vault server address (can be in URI) |
+| `VAULT_TOKEN` | Conditional | Token for token auth |
+| `VAULT_ROLE_ID` | Conditional | For AppRole auth |
+| `VAULT_SECRET_ID` | Conditional | For AppRole auth |
+
+*Can be specified in the URI instead.
+
+### Auth Methods
+
+**Token Auth:**
+```yaml
+doklab.secret.env.KEY: ref+vault://vault.example.com:8200/secret/data/myapp#/password
+```
+
+**Kubernetes Auth:**
+```yaml
+doklab.secret.env.KEY: ref+vault://vault.example.com:8200/secret/data/myapp#/password?role=myapp-role
+```
+
+### Path Formats
+
+| Vault Version | Path Format |
+|---------------|-------------|
+| KV v1 | `/secret/myapp` |
+| KV v2 | `/secret/data/myapp` (note the `/data/`) |
+
+### Examples
+
+```yaml
+# KV v2 (default in modern Vault)
+doklab.secret.env.DB_PASS: ref+vault://vault.example.com:8200/secret/data/myapp#/db_password
+
+# With Kubernetes auth
+doklab.secret.env.DB_PASS: ref+vault://vault.example.com:8200/secret/data/myapp#/db_password?role=myapp
+```
+
+---
+
+## AWS Secrets Manager
+
+### Syntax
+
+```
+ref+awssecrets://secret-name#/json-key
+ref+awssecrets://secret-name[?region=us-east-1]
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `AWS_ACCESS_KEY_ID` | Conditional | Access key (or use IAM role) |
+| `AWS_SECRET_ACCESS_KEY` | Conditional | Secret key (or use IAM role) |
+| `AWS_REGION` | Yes | AWS region |
+| `AWS_PROFILE` | Optional | Named profile from ~/.aws/credentials |
+
+<Callout>
+  On EC2/ECS, prefer IAM roles over access keys. The SDK automatically uses instance metadata.
+</Callout>
+
+### Examples
+
+```yaml
+# JSON secret with key extraction
+doklab.secret.env.DB_PASS: ref+awssecrets://myapp/database#/password
+
+# Plain text secret (no #/key)
+doklab.secret.env.API_KEY: ref+awssecrets://myapp/api-key
+
+# Specific region
+doklab.secret.env.KEY: ref+awssecrets://myapp/key?region=eu-west-1
+
+# Specific version
+doklab.secret.env.KEY: ref+awssecrets://myapp/key?version_id=abc123
+```
+
+### Base64 Handling
+
+AWS Secrets Manager stores binary secrets as base64. Use `decodeFrom` for binary data:
+
+```yaml
+doklab.secret.file.cert: ref+awssecrets://myapp/tls-cert
+doklab.secret.file.cert.mountPath: /etc/ssl/cert.pem
+doklab.secret.file.cert.decodeFrom: base64
+```
+
+---
+
+## AWS SSM Parameter Store
+
+### Syntax
+
+```
+ref+awsssm://parameter-name[?region=us-east-1]
+```
+
+### Authentication
+
+Same as AWS Secrets Manager.
+
+### Examples
+
+```yaml
+# Standard parameter
+doklab.secret.env.DB_HOST: ref+awsssm:///myapp/database/host
+
+# SecureString (automatically decrypted)
+doklab.secret.env.DB_PASS: ref+awsssm:///myapp/database/password
+
+# Specific region
+doklab.secret.env.KEY: ref+awsssm:///myapp/key?region=eu-west-1
+```
+
+<Callout type="warning">
+  SSM paths must start with `/`. Use `ref+awsssm:///path` (three slashes).
+</Callout>
+
+---
+
+## GCP Secret Manager
+
+### Syntax
+
+```
+ref+gcpsecrets://project-id/secret-name[#/version]
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_APPLICATION_CREDENTIALS` | Conditional | Path to service account JSON |
+| `GOOGLE_CLOUD_PROJECT` | Optional | Default project ID |
+
+On GCE/GKE, Workload Identity is automatically used.
+
+### Examples
+
+```yaml
+# Latest version
+doklab.secret.env.API_KEY: ref+gcpsecrets://my-project/api-key
+
+# Specific version
+doklab.secret.env.API_KEY: ref+gcpsecrets://my-project/api-key#/versions/3
+
+# Using default project
+doklab.secret.env.API_KEY: ref+gcpsecrets://api-key
+```
+
+---
+
+## Azure Key Vault
+
+### Syntax
+
+```
+ref+azurekeyvault://vault-name/secret-name[?version=xxx]
+```
+
+### Authentication
+
+Azure Key Vault uses the **Azure Identity SDK chain**:
+
+1. Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
+2. Managed Identity (on Azure VMs/AKS)
+3. Azure CLI credentials
+4. Visual Studio Code credentials
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `AZURE_CLIENT_ID` | Conditional | Service principal app ID |
+| `AZURE_TENANT_ID` | Conditional | Azure AD tenant ID |
+| `AZURE_CLIENT_SECRET` | Conditional | Service principal secret |
+
+### Examples
+
+```yaml
+# Basic usage
+doklab.secret.env.DB_PASS: ref+azurekeyvault://my-vault/database-password
+
+# Specific version
+doklab.secret.env.DB_PASS: ref+azurekeyvault://my-vault/database-password?version=abc123
+```
+
+### Base64 Quirks
+
+<Callout type="warning">
+  Azure Key Vault certificates are often stored as base64-encoded PFX/PEM. You may need `decodeFrom: base64url` (URL-safe base64) for some certificates:
+</Callout>
+
+```yaml
+doklab.secret.file.cert: ref+azurekeyvault://my-vault/tls-cert
+doklab.secret.file.cert.mountPath: /etc/ssl/cert.pem
+doklab.secret.file.cert.decodeFrom: base64url
+```
+
+---
+
+## 1Password
+
+### Syntax
+
+```
+ref+onepassword://vault-name/item-name#/field
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OP_SERVICE_ACCOUNT_TOKEN` | Yes | 1Password service account token |
+
+### Examples
+
+```yaml
+doklab.secret.env.DB_PASS: ref+onepassword://Development/Database#/password
+doklab.secret.env.API_KEY: ref+onepassword://Production/API Keys#/stripe
+```
+
+---
+
+## Doppler
+
+### Syntax
+
+```
+ref+doppler://project/config#/SECRET_NAME
+```
+
+### Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DOPPLER_TOKEN` | Yes | Doppler service token |
+
+### Examples
+
+```yaml
+doklab.secret.env.DB_PASS: ref+doppler://myapp/production#/DATABASE_PASSWORD
+doklab.secret.env.API_KEY: ref+doppler://myapp/production#/STRIPE_API_KEY
+```
+
+---
+
+## Environment Variables
+
+Reference environment variables from the host.
+
+### Syntax
+
+```
+ref+env://VARIABLE_NAME
+```
+
+### Examples
+
+```yaml
+# Pass through host environment variable
+doklab.secret.env.HOME_DIR: ref+env://HOME
+
+# Useful for CI/CD injected secrets
+doklab.secret.env.CI_TOKEN: ref+env://CI_JOB_TOKEN
+```
+
+---
+
+## File
+
+Read secrets from local files.
+
+### Syntax
+
+```
+ref+file://path/to/file
+```
+
+### Examples
+
+```yaml
+# Read entire file as secret
+doklab.secret.env.SSH_KEY: ref+file:///home/user/.ssh/id_rsa
+
+# Combine with decodeFrom for binary files
+doklab.secret.file.cert: ref+file:///etc/ssl/cert.pem.b64
+doklab.secret.file.cert.decodeFrom: base64
+```
+
+---
+
+## Decode Options
+
+For secrets stored as base64-encoded strings:
+
+| Option | Description | Use Case |
+|--------|-------------|----------|
+| `base64` | Standard base64 decoding | Most providers |
+| `base64url` | URL-safe base64 (RFC 4648) | Azure certificates, JWT components |
+
+```yaml
+doklab.secret.file.cert: ref+sops://secrets.yaml#/tls_cert
+doklab.secret.file.cert.mountPath: /etc/ssl/cert.pem
+doklab.secret.file.cert.decodeFrom: base64
+
+doklab.secret.file.azure_cert: ref+azurekeyvault://vault/cert
+doklab.secret.file.azure_cert.mountPath: /etc/ssl/azure.pem
+doklab.secret.file.azure_cert.decodeFrom: base64url
+```
+
+---
+
+## Provider Selection Guide
+
+| Use Case | Recommended Provider |
+|----------|---------------------|
+| Local development | SOPS (age) |
+| Single server / homelab | SOPS (age) |
+| AWS infrastructure | AWS Secrets Manager |
+| GCP infrastructure | GCP Secret Manager |
+| Azure infrastructure | Azure Key Vault |
+| HashiCorp ecosystem | Vault |
+| Team password manager | 1Password |
+| Multi-cloud | Doppler |
+
+<Callout>
+  **For most doklab users**, SOPS with age encryption is the simplest and most portable option. It requires no external services and secrets are stored encrypted in your Git repository.
+</Callout>

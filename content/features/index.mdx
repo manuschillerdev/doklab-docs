@@ -1,0 +1,83 @@
+# Features Overview
+
+doklab provides a comprehensive set of features to manage your Docker Compose deployments. All features are configured through simple labels on your services.
+
+import { Cards } from 'nextra/components'
+
+## Feature Matrix
+
+| Feature | Tailscale Mode | Cloudflare Mode |
+|---------|---------------|-----------------|
+| **Routing** | TSDProxy | Traefik |
+| **TLS** | Tailscale certs | Let's Encrypt |
+| **Secrets** | SOPS, Vault, etc. | SOPS, Vault, etc. |
+| **Scale-to-zero** | - | Sablier |
+| **Auto-restart** | Autoheal | Autoheal |
+| **Scheduled Jobs** | Ofelia | Ofelia |
+| **Backups** | Nautical + Kopia | Nautical + Kopia |
+| **Monitoring** | Beszel | Beszel |
+| **Persistent Logs** | VictoriaLogs (opt-in) | VictoriaLogs (opt-in) |
+| **Multiple routes per service** | - | Yes |
+
+## Quick Links
+
+<Cards>
+  <Cards.Card title="Routing" href="/docs/features/routing" />
+  <Cards.Card title="Secrets" href="/docs/features/secrets" />
+  <Cards.Card title="Backups" href="/docs/features/backups" />
+  <Cards.Card title="Scheduled Jobs" href="/docs/features/jobs" />
+  <Cards.Card title="Lifecycle" href="/docs/features/lifecycle" />
+  <Cards.Card title="Monitoring" href="/docs/features/monitoring" />
+</Cards>
+
+## Label Quick Reference
+
+```yaml filename="docker-compose.yml"
+services:
+  myapp:
+    image: myapp:latest
+    labels:
+      # Routing
+      doklab.route.host: myapp              # Service hostname
+      doklab.route.port: "8080"             # Service port
+
+      # Secrets
+      doklab.secret.env.API_KEY: ref+sops://secrets.yaml#/api_key
+      doklab.secret.file.cert: ref+sops://certs.yaml#/tls_cert
+      doklab.secret.file.cert.mountPath: /etc/ssl/cert.pem
+
+      # Lifecycle
+      doklab.lifecycle.idle: 30m            # Scale-to-zero timeout
+      doklab.lifecycle.autoheal: "true"     # Auto-restart on failure
+
+      # Jobs
+      doklab.job.cleanup: "0 2 * * *"       # Cron schedule
+      doklab.job.cleanup.command: "rm -rf /tmp/*"
+
+      # Backups
+      doklab.backup.enable: "true"
+      doklab.backup.schedule: "0 3 * * *"
+```
+
+## How Labels Work
+
+doklab processes your Compose files and translates `doklab.*` labels into provider-specific configurations:
+
+```
+doklab.route.host: api
+          │
+          ▼
+┌─────────────────────────────────────┐
+│         doklab processing           │
+└─────────────────────────────────────┘
+          │
+    ┌─────┴─────┐
+    ▼           ▼
+Tailscale    Cloudflare
+   │            │
+   ▼            ▼
+tsdproxy.*   traefik.*
+labels       labels
+```
+
+This abstraction allows you to write portable Compose files that work with either network mode.

@@ -1,0 +1,419 @@
+# CLI Reference
+
+Complete reference for doklab commands.
+
+## Global Options
+
+```bash
+doklab [command] [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--config` | Path to config file (default: `~/.doklab/config.yaml`) |
+| `--help` | Show help for any command |
+| `--version` | Show version information |
+
+---
+
+## Initialization
+
+### `doklab init`
+
+Initialize doklab configuration.
+
+```bash
+# Tailscale mode
+doklab init --ts-authkey tskey-auth-xxxxx [--ts-hostname doklab]
+
+# Cloudflare mode
+doklab init --cloudflare --domain example.com --cf-token TOKEN
+```
+
+| Flag | Description |
+|------|-------------|
+| `--cloudflare` | Use Cloudflare mode |
+| `--ts-authkey` | Tailscale auth key (or `TS_AUTHKEY` env) |
+| `--ts-hostname` | Tailscale hostname (default: `doklab`) |
+| `--domain` | Base domain (required for Cloudflare) |
+| `--cf-token` | Cloudflare API token (or `CF_API_TOKEN` env) |
+
+---
+
+## Infrastructure
+
+### `doklab infra up`
+
+Deploy the infrastructure stack.
+
+```bash
+doklab infra up
+```
+
+Deploys: Traefik/TSDProxy, Autoheal, Ofelia, Nautical, Beszel. Also Fluent Bit + VictoriaLogs if logging is enabled.
+
+### `doklab infra down`
+
+Stop the infrastructure stack.
+
+```bash
+doklab infra down
+```
+
+### `doklab infra pull`
+
+Pull latest infrastructure images.
+
+```bash
+doklab infra pull
+```
+
+### `doklab infra status`
+
+Show infrastructure status.
+
+```bash
+doklab infra status
+```
+
+---
+
+## Project Management
+
+### `doklab add`
+
+Add a project to configuration.
+
+```bash
+doklab add PROJECT SOURCE [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--branch` | Git branch (default: `main`) |
+| `--compose-path` | Path to compose file (default: `docker-compose.yml`) |
+| `--enabled` | Enable project (default: `true`) |
+
+**Examples:**
+
+```bash
+doklab add myapp https://github.com/user/myapp
+doklab add myapp https://github.com/user/myapp --branch develop
+doklab add local file:///home/user/projects/local --compose-path compose.yml
+```
+
+### `doklab remove`
+
+Remove a project from configuration.
+
+```bash
+doklab remove PROJECT [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--volumes` | Also remove volumes |
+
+### `doklab update`
+
+Update project configuration.
+
+```bash
+doklab update PROJECT [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--source` | Change source URL |
+| `--branch` | Change branch |
+| `--compose-path` | Change compose file path |
+| `--enabled` | Enable/disable project |
+
+### `doklab project enable`
+
+Enable a project.
+
+```bash
+doklab project enable PROJECT
+```
+
+### `doklab project disable`
+
+Disable a project.
+
+```bash
+doklab project disable PROJECT
+```
+
+---
+
+## Deployment
+
+### `doklab up`
+
+Deploy a project.
+
+```bash
+doklab up [PROJECT]
+```
+
+Without arguments, deploys all enabled projects.
+
+### `doklab down`
+
+Stop a project.
+
+```bash
+doklab down [PROJECT]
+```
+
+Without arguments, stops all projects.
+
+### `doklab sync`
+
+Check for updates and deploy if changed.
+
+```bash
+doklab sync [PROJECT]
+```
+
+### `doklab sync start`
+
+Start GitOps sync polling in foreground.
+
+```bash
+doklab sync start
+```
+
+Press Ctrl+C to stop.
+
+---
+
+## Information
+
+### `doklab list`
+
+List all projects.
+
+```bash
+doklab list [--all]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Show disabled projects |
+
+### `doklab ps`
+
+Show running containers.
+
+```bash
+doklab ps
+```
+
+### `doklab show`
+
+Show project details.
+
+```bash
+doklab show PROJECT
+```
+
+Displays:
+- Project configuration
+- Running services
+- Resolved labels
+- Secret placeholders (not values)
+
+### `doklab logs`
+
+Query persistent logs from VictoriaLogs using LogsQL.
+
+```bash
+doklab logs [query] [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--since` | Time range (default: 1h) |
+| `--limit` | Max lines to return (default: 1000) |
+
+**Examples:**
+
+```bash
+# All logs from the last hour
+doklab logs '*'
+
+# Logs from a specific container
+doklab logs '_stream:{container_name="myapp-1"}'
+
+# Search for errors
+doklab logs 'error'
+
+# Logs from last 30 minutes
+doklab logs --since 30m 'error'
+```
+
+Requires `daemon.logging.enabled: true` in config. See [LogsQL documentation](https://docs.victoriametrics.com/victorialogs/logsql/) for query syntax.
+
+### `doklab report`
+
+Generate system report.
+
+```bash
+doklab report
+```
+
+Shows doklab version, Docker status, project status, and resource usage.
+
+---
+
+## Routes
+
+### `doklab route add`
+
+Add an external route.
+
+```bash
+doklab route add NAME TARGET [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--tls-skip-verify` | Skip TLS verification |
+| `--port` | External port (default: 443) |
+
+**Example:**
+
+```bash
+doklab route add plex http://192.168.1.100:32400 --tls-skip-verify
+```
+
+### `doklab route remove`
+
+Remove an external route.
+
+```bash
+doklab route remove NAME
+```
+
+### `doklab route list`
+
+List all external routes.
+
+```bash
+doklab route list
+```
+
+---
+
+## Backup
+
+### `doklab backup watch`
+
+Start the backup file watcher.
+
+```bash
+doklab backup watch
+```
+
+Monitors Nautical backups and creates Kopia snapshots.
+
+### `doklab backup list`
+
+List Kopia snapshots.
+
+```bash
+doklab backup list
+```
+
+### `doklab backup restore`
+
+Restore a snapshot.
+
+```bash
+doklab backup restore SNAPSHOT_ID DESTINATION
+```
+
+---
+
+## Daemon
+
+### `doklab daemon install`
+
+Install doklab as a system service.
+
+```bash
+doklab daemon install
+```
+
+### `doklab daemon uninstall`
+
+Uninstall the system service.
+
+```bash
+doklab daemon uninstall
+```
+
+### `doklab daemon start`
+
+Start the daemon service.
+
+```bash
+doklab daemon start
+```
+
+### `doklab daemon stop`
+
+Stop the daemon service.
+
+```bash
+doklab daemon stop
+```
+
+### `doklab daemon status`
+
+Show daemon status.
+
+```bash
+doklab daemon status
+```
+
+### `doklab daemon logs`
+
+View daemon logs.
+
+```bash
+doklab daemon logs
+```
+
+---
+
+## Catalog
+
+### `doklab catalog list`
+
+List available project templates.
+
+```bash
+doklab catalog list
+```
+
+### `doklab catalog add`
+
+Add a project from the catalog.
+
+```bash
+doklab catalog add TEMPLATE
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | General error |
+| `2` | Configuration error |
+| `3` | Docker error |

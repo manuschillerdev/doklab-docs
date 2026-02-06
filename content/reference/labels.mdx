@@ -1,0 +1,246 @@
+# Labels Reference
+
+Complete reference for `doklab.*` labels used in docker-compose.yml.
+
+import { Callout } from 'nextra/components'
+
+## Label Categories
+
+| Category | Prefix | Purpose |
+|----------|--------|---------|
+| [Routing](#routing-labels) | `doklab.route.*` | Expose services via HTTP/HTTPS |
+| [Secrets](#secret-labels) | `doklab.secret.*` | Inject secrets from encrypted sources |
+| [Lifecycle](#lifecycle-labels) | `doklab.lifecycle.*` | Scale-to-zero and auto-restart |
+| [Jobs](#job-labels) | `doklab.job.*` | Scheduled job execution |
+| [Backup](#backup-labels) | `doklab.backup.*` | Container backup configuration |
+| [Metadata](#metadata-labels) | `doklab.metadata.*` | Automatically added by doklab |
+
+---
+
+## Routing Labels
+
+Expose services to the network with automatic TLS.
+
+### Basic Route
+
+```yaml
+labels:
+  doklab.route.host: api          # Hostname (relative or absolute)
+  doklab.route.port: "8080"       # Service port
+```
+
+### Named Routes (Cloudflare Only)
+
+```yaml
+labels:
+  doklab.route.host: api
+  doklab.route.port: "8080"
+  doklab.route.admin.host: admin    # Named route: admin
+  doklab.route.admin.port: "9000"
+```
+
+### Reference
+
+| Label | Type | Required | Description |
+|-------|------|----------|-------------|
+| `doklab.route.host` | string | Yes | Default route hostname |
+| `doklab.route.port` | string | No | Default route port (uses first exposed port) |
+| `doklab.route.{name}.host` | string | No | Named route hostname |
+| `doklab.route.{name}.port` | string | No | Named route port |
+
+<Callout type="info">
+  Relative hostnames (without dots) are appended to the base domain. Absolute hostnames are used as-is.
+</Callout>
+
+---
+
+## Secret Labels
+
+Inject secrets from encrypted sources.
+
+### Environment Secrets
+
+```yaml
+labels:
+  doklab.secret.env.DB_PASSWORD: ref+sops://secrets.yaml#/db/password
+  doklab.secret.env.API_KEY: ref+vault://vault.example.com:8200/secret/api#/key
+```
+
+### File Secrets
+
+```yaml
+labels:
+  doklab.secret.file.cert: ref+sops://tls.yaml#/certificate
+  doklab.secret.file.cert.mountPath: /etc/ssl/cert.pem
+  doklab.secret.file.cert.decodeFrom: base64
+```
+
+### Reference
+
+| Label | Type | Required | Description |
+|-------|------|----------|-------------|
+| `doklab.secret.env.{NAME}` | string | - | Secret value/reference for env var |
+| `doklab.secret.file.{name}` | string | - | Secret value/reference for file |
+| `doklab.secret.file.{name}.mountPath` | string | Yes* | Path to mount file in container |
+| `doklab.secret.file.{name}.decodeFrom` | string | No | Decode from `base64` or `base64url` |
+
+### Secret Reference Formats
+
+| Backend | Format |
+|---------|--------|
+| SOPS | `ref+sops://file.yaml#/path/to/key` |
+| Vault | `ref+vault://server:8200/path#/key` |
+| AWS | `ref+awssecrets://secret-name#/key` |
+| GCP | `ref+gcpsecrets://project/secret#/version` |
+| Azure | `ref+azurekeyvault://vault/secret` |
+
+---
+
+## Lifecycle Labels
+
+Control container lifecycle behavior.
+
+```yaml
+labels:
+  doklab.lifecycle.idle: 30m        # Scale-to-zero after 30 minutes
+  doklab.lifecycle.autoheal: "true" # Auto-restart on failure
+```
+
+### Reference
+
+| Label | Type | Values | Description |
+|-------|------|--------|-------------|
+| `doklab.lifecycle.idle` | duration | `30s`, `5m`, `1h` | Scale-to-zero timeout (Cloudflare only) |
+| `doklab.lifecycle.autoheal` | bool | `true`, `false` | Enable auto-restart on unhealthy |
+
+<Callout type="warning">
+  Scale-to-zero (`doklab.lifecycle.idle`) requires Cloudflare mode and Sablier integration.
+</Callout>
+
+---
+
+## Job Labels
+
+Schedule recurring jobs inside containers.
+
+```yaml
+labels:
+  doklab.job.cleanup: "0 2 * * *"
+  doklab.job.cleanup.command: "rm -rf /tmp/*"
+  doklab.job.cleanup.user: root
+  doklab.job.cleanup.tty: "false"
+```
+
+### Reference
+
+| Label | Type | Required | Description |
+|-------|------|----------|-------------|
+| `doklab.job.{name}` | string | Yes | Cron schedule or preset |
+| `doklab.job.{name}.command` | string | Yes | Command to execute |
+| `doklab.job.{name}.user` | string | No | User to run command as |
+| `doklab.job.{name}.tty` | bool | No | Allocate pseudo-TTY |
+
+### Schedule Formats
+
+```yaml
+# Standard cron
+doklab.job.name: "0 2 * * *"      # Daily at 2 AM
+doklab.job.name: "*/15 * * * *"   # Every 15 minutes
+
+# Presets
+doklab.job.name: "@daily"
+doklab.job.name: "@hourly"
+doklab.job.name: "@weekly"
+
+# Extended
+doklab.job.name: "@every 30s"
+doklab.job.name: "@every 2h"
+```
+
+---
+
+## Backup Labels
+
+Configure automated backups via Nautical.
+
+```yaml
+labels:
+  doklab.backup.enable: "true"
+  doklab.backup.schedule: "0 3 * * *"
+  doklab.backup.stop-before-backup: "false"
+  doklab.backup.pre-backup-command: "pg_dump -U postgres > /backup/dump.sql"
+```
+
+### Reference
+
+| Label | Type | Default | Description |
+|-------|------|---------|-------------|
+| `doklab.backup.enable` | bool | `false` | Enable backups for this container |
+| `doklab.backup.schedule` | string | - | Cron schedule for backups |
+| `doklab.backup.stop-before-backup` | bool | `false` | Stop container before backup |
+| `doklab.backup.pre-backup-command` | string | - | Run before backup starts |
+| `doklab.backup.post-backup-command` | string | - | Run after backup completes |
+
+<Callout>
+  All `doklab.backup.*` labels are automatically translated to `nautical-backup.*` labels.
+</Callout>
+
+---
+
+## Metadata Labels
+
+Automatically added by doklab to all managed services.
+
+```yaml
+labels:
+  doklab.metadata.managed-by: doklab
+  doklab.metadata.project: myapp
+  doklab.metadata.source: https://github.com/user/repo
+  doklab.metadata.commit: abc123def456
+  doklab.metadata.branch: main
+  doklab.metadata.compose-file: docker-compose.yml
+```
+
+### Reference
+
+| Label | Description |
+|-------|-------------|
+| `doklab.metadata.managed-by` | Always `doklab` |
+| `doklab.metadata.project` | Project name |
+| `doklab.metadata.source` | Git URL or file path |
+| `doklab.metadata.commit` | Deployed commit SHA |
+| `doklab.metadata.branch` | Git branch name |
+| `doklab.metadata.compose-file` | Compose file path |
+
+These labels are read-only and used for tracking deployed resources.
+
+---
+
+## Generated Labels
+
+doklab generates provider-specific labels based on mode:
+
+### Tailscale Mode (TSDProxy)
+
+| doklab | Generated |
+|--------|-----------|
+| `doklab.route.host: api` | `tsdproxy.enable: "true"` |
+| | `tsdproxy.name: "api"` |
+| | `tsdproxy.port.1: "443/https:8080/http"` |
+
+### Cloudflare Mode (Traefik)
+
+| doklab | Generated |
+|--------|-----------|
+| `doklab.route.host: api` | `traefik.enable: "true"` |
+| | `traefik.http.routers.api.rule: "Host(\`api.example.com\`)"` |
+| | `traefik.http.routers.api.entrypoints: "websecure"` |
+| | `traefik.http.routers.api.tls: "true"` |
+
+### Job Labels (Ofelia)
+
+| doklab | Generated |
+|--------|-----------|
+| `doklab.job.cleanup: "@daily"` | `ofelia.enabled: "true"` |
+| `doklab.job.cleanup.command: "..."` | `ofelia.job-exec.myapp-api-cleanup.schedule: "@daily"` |
+| | `ofelia.job-exec.myapp-api-cleanup.command: "..."` |

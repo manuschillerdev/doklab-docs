@@ -1,0 +1,268 @@
+# Traefik Features Guide
+
+Advanced Traefik configuration and features available in Cloudflare mode.
+
+import { Callout } from 'nextra/components'
+
+## Overview
+
+In Cloudflare mode, doklab uses Traefik v3 as the reverse proxy. This guide covers advanced features beyond basic routing.
+
+<Callout>
+  Traefik features are only available in **Cloudflare mode**. Tailscale mode uses TSDProxy which has a simpler feature set.
+</Callout>
+
+## Dashboard Access
+
+The Traefik dashboard is available locally:
+
+```
+http://localhost:8080/api/dashboard
+```
+
+View:
+- Active routers and services
+- Middleware configuration
+- TLS certificates
+- Health status
+
+## Multiple Routes
+
+Route a single service to multiple hostnames:
+
+```yaml filename="docker-compose.yml"
+services:
+  api:
+    image: myapp:latest
+    labels:
+      # Primary route
+      doklab.route.host: api
+      doklab.route.port: "8080"
+
+      # Admin interface on different port
+      doklab.route.admin.host: admin
+      doklab.route.admin.port: "9000"
+
+      # Metrics endpoint
+      doklab.route.metrics.host: metrics.internal.example.com
+      doklab.route.metrics.port: "9090"
+```
+
+## Scale-to-Zero with Sablier
+
+Stop idle containers to save resources:
+
+```yaml {4-5}
+labels:
+  doklab.route.host: api
+  doklab.route.port: "8080"
+  doklab.lifecycle.idle: 30m  # Stop after 30 minutes idle
+```
+
+### How Sablier Works
+
+1. Traefik routes requests through Sablier middleware
+2. Sablier tracks last request time per service group
+3. After idle timeout, container is stopped
+4. On next request:
+   - Sablier shows a waiting page
+   - Container is started
+   - Request is forwarded when ready
+
+### Sablier Configuration
+
+Generated Traefik labels:
+
+```yaml
+traefik.http.routers.api.middlewares: "api-sablier"
+traefik.http.middlewares.api-sablier.plugin.sablier.names: "myapp-api-1"
+traefik.http.middlewares.api-sablier.plugin.sablier.group: "api"
+traefik.http.middlewares.api-sablier.plugin.sablier.sessionDuration: "30m"
+traefik.http.middlewares.api-sablier.plugin.sablier.dynamic.displayName: "api"
+traefik.http.middlewares.api-sablier.plugin.sablier.dynamic.theme: "hacker-terminal"
+```
+
+### Loading Page Themes
+
+Sablier includes several themes:
+- `hacker-terminal` (default)
+- `matrix`
+- `shuffle`
+
+## External Services
+
+Route traffic to non-Docker services through Traefik:
+
+```yaml filename="~/.doklab/config.yaml"
+routes:
+  plex:
+    target: http://192.168.1.100:32400
+    tls_skip_verify: false
+
+  nas:
+    target: https://192.168.1.50:5001
+    tls_skip_verify: true  # Self-signed cert
+```
+
+### Generated Dynamic Config
+
+doklab creates Traefik dynamic configuration files:
+
+```yaml filename="~/.doklab/traefik/dynamic/plex.doklab.yml"
+http:
+  routers:
+    plex:
+      rule: "Host(`plex.example.com`)"
+      entryPoints:
+        - websecure
+      service: plex
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    plex:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.100:32400"
+
+  serversTransports:
+    plex:
+      insecureSkipVerify: false
+```
+
+## TLS Configuration
+
+### Let's Encrypt (ACME)
+
+Traefik obtains certificates via DNS challenge:
+
+```yaml
+# Configured automatically
+--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+```
+
+### Origin CA Certificate
+
+For the Cloudflare tunnel connection, doklab generates a 15-year Origin CA certificate:
+
+```
+~/.doklab/traefik/certs/
+├── origin.crt
+└── origin.key
+```
+
+## Custom Middleware
+
+Add custom Traefik middleware via compose labels:
+
+### Basic Auth
+
+```yaml
+labels:
+  doklab.route.host: admin
+  # Add custom Traefik labels directly
+  traefik.http.routers.admin.middlewares: "admin-auth"
+  traefik.http.middlewares.admin-auth.basicauth.users: "admin:$$apr1$$..."
+```
+
+### Rate Limiting
+
+```yaml
+labels:
+  doklab.route.host: api
+  traefik.http.routers.api.middlewares: "api-ratelimit"
+  traefik.http.middlewares.api-ratelimit.ratelimit.average: 100
+  traefik.http.middlewares.api-ratelimit.ratelimit.burst: 50
+```
+
+### IP Whitelist
+
+```yaml
+labels:
+  doklab.route.host: internal
+  traefik.http.routers.internal.middlewares: "internal-whitelist"
+  traefik.http.middlewares.internal-whitelist.ipwhitelist.sourcerange: "10.0.0.0/8,172.16.0.0/12"
+```
+
+## Load Balancing
+
+For services with multiple replicas:
+
+```yaml filename="docker-compose.yml"
+services:
+  api:
+    image: myapp:latest
+    deploy:
+      replicas: 3
+    labels:
+      doklab.route.host: api
+      doklab.route.port: "8080"
+```
+
+Traefik automatically load balances across all replicas.
+
+## Health Checks
+
+Configure Traefik health checks:
+
+```yaml
+labels:
+  doklab.route.host: api
+  traefik.http.services.api.loadbalancer.healthcheck.path: /health
+  traefik.http.services.api.loadbalancer.healthcheck.interval: 10s
+```
+
+## Sticky Sessions
+
+For applications requiring session affinity:
+
+```yaml
+labels:
+  doklab.route.host: app
+  traefik.http.services.app.loadbalancer.sticky.cookie: "true"
+  traefik.http.services.app.loadbalancer.sticky.cookie.name: "server_id"
+```
+
+## Traefik Logs
+
+View Traefik logs:
+
+```bash
+docker logs traefik
+```
+
+Enable access logs:
+
+```yaml
+# Add to traefik command in core-stack.yml
+--accesslog=true
+--accesslog.filepath=/var/log/traefik/access.log
+```
+
+## Troubleshooting
+
+### Router not created
+
+1. Check Traefik dashboard for errors
+2. Verify labels are correct:
+   ```bash
+   docker inspect myapp-api-1 | jq '.[0].Config.Labels'
+   ```
+3. Check container is on doklab network
+
+### TLS certificate errors
+
+1. Check ACME storage:
+   ```bash
+   cat ~/.doklab/traefik/letsencrypt/acme.json | jq '.letsencrypt.Certificates'
+   ```
+2. Verify DNS is correct
+3. Check Cloudflare API token permissions
+
+### 502 Bad Gateway
+
+1. Service not running or wrong port
+2. Container not on doklab network
+3. Health check failing

@@ -1,0 +1,243 @@
+# Quickstart
+
+Deploy your first project with doklab in under 5 minutes.
+
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+import { FileTree } from 'nextra/components'
+
+## Prerequisites
+
+- doklab [installed and initialized](/docs/getting-started/installation)
+- Infrastructure running (`doklab infra up`)
+
+## Deploy from Git
+
+<Steps>
+### Add a project
+
+```bash
+doklab add myapp https://github.com/your-org/myapp
+```
+
+Or add directly to config:
+
+```yaml filename="~/.doklab/config.yaml" {6-9}
+domain: example.com
+
+network:
+  mode: tailscale
+
+projects:
+  myapp:
+    source: https://github.com/your-org/myapp
+    branch: main
+```
+
+### Deploy
+
+```bash
+doklab up myapp
+```
+
+doklab will:
+1. Clone the repository
+2. Parse the `docker-compose.yml`
+3. Process any `doklab.*` labels
+4. Resolve secrets
+5. Deploy containers
+
+### Verify
+
+```bash
+doklab ps
+```
+
+```
+PROJECT  SERVICE  STATUS   PORTS
+myapp    api      running  8080
+myapp    db       running  5432
+```
+</Steps>
+
+## Example Project
+
+Here's a complete example showing doklab's features:
+
+<FileTree>
+  <FileTree.Folder name="myapp" defaultOpen>
+    <FileTree.File name="docker-compose.yml" />
+    <FileTree.File name=".env" />
+    <FileTree.File name="secrets.yaml" />
+  </FileTree.Folder>
+</FileTree>
+
+```yaml filename="docker-compose.yml" showLineNumbers
+services:
+  api:
+    image: myapp-api:latest
+    environment:
+      - DATABASE_URL=postgres://postgres:${DB_PASSWORD}@db:5432/myapp
+    labels:
+      # Routing - expose as api.example.com
+      doklab.route.host: api
+      doklab.route.port: "8080"
+
+      # Secrets - inject from SOPS-encrypted file
+      doklab.secret.env.JWT_SECRET: ref+sops://secrets.yaml#/jwt_secret
+      doklab.secret.env.API_KEY: ref+sops://secrets.yaml#/api_key
+
+      # Lifecycle - scale to zero after 30 minutes idle
+      doklab.lifecycle.idle: 30m
+      doklab.lifecycle.autoheal: "true"
+
+      # Jobs - run cleanup daily at 2am
+      doklab.job.cleanup: "0 2 * * *"
+      doklab.job.cleanup.command: "rm -rf /tmp/*"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    labels:
+      # Backup - daily backups at 3am
+      doklab.backup.enable: "true"
+      doklab.backup.schedule: "0 3 * * *"
+
+volumes:
+  pgdata:
+```
+
+```bash filename=".env"
+# Plain values
+DB_NAME=myapp
+
+# Resolved secrets (vals syntax)
+DB_PASSWORD=ref+sops://secrets.yaml#/db_password
+```
+
+```yaml filename="secrets.yaml"
+# Encrypted with SOPS
+db_password: ENC[AES256_GCM,data:abc123...]
+jwt_secret: ENC[AES256_GCM,data:def456...]
+api_key: ENC[AES256_GCM,data:ghi789...]
+```
+
+## What Happens?
+
+When you run `doklab up myapp`, the following transformations occur:
+
+### 1. Secret Resolution
+
+```yaml
+doklab.secret.env.JWT_SECRET: ref+sops://secrets.yaml#/jwt_secret
+```
+
+becomes an environment variable:
+
+```
+JWT_SECRET=actual-secret-value
+```
+
+### 2. Route Expansion
+
+For **Tailscale mode**:
+
+```yaml
+doklab.route.host: api
+```
+
+becomes TSDProxy labels:
+
+```yaml
+tsdproxy.enable: "true"
+tsdproxy.name: "api"
+tsdproxy.port.1: "443/https:8080/http"
+```
+
+For **Cloudflare mode**:
+
+```yaml
+traefik.enable: "true"
+traefik.http.routers.api.rule: "Host(`api.example.com`)"
+traefik.http.routers.api.entrypoints: "websecure"
+traefik.http.routers.api.tls.certresolver: "letsencrypt"
+traefik.http.services.api.loadbalancer.server.port: "8080"
+```
+
+### 3. Lifecycle Labels
+
+```yaml
+doklab.lifecycle.idle: 30m
+```
+
+becomes Sablier middleware (Cloudflare mode only):
+
+```yaml
+sablier.enable: "true"
+sablier.group: "api"
+traefik.http.middlewares.api-sablier.plugin.sablier.sessionDuration: "30m"
+```
+
+### 4. Job Labels
+
+```yaml
+doklab.job.cleanup: "0 2 * * *"
+doklab.job.cleanup.command: "rm -rf /tmp/*"
+```
+
+becomes Ofelia labels:
+
+```yaml
+ofelia.enabled: "true"
+ofelia.job-exec.api-cleanup.schedule: "0 2 * * *"
+ofelia.job-exec.api-cleanup.command: "rm -rf /tmp/*"
+```
+
+### 5. Backup Labels
+
+```yaml
+doklab.backup.enable: "true"
+```
+
+becomes Nautical labels:
+
+```yaml
+nautical-backup.enable: "true"
+```
+
+## Common Operations
+
+```bash
+# List all projects
+doklab list
+
+# Show project details
+doklab show myapp
+
+# Update project from Git
+doklab update myapp
+
+# Stop a project
+doklab down myapp
+
+# View logs
+doklab logs myapp
+
+# Check for updates
+doklab sync myapp
+```
+
+<Callout type="info">
+  Use `doklab daemon install` to enable automatic GitOps sync. Changes pushed to Git will be automatically deployed.
+</Callout>
+
+## Next Steps
+
+- **[Configuration](/docs/getting-started/configuration)** - Deep dive into config options
+- **[Features](/docs/features)** - Explore all doklab capabilities
+- **[Reference](/docs/reference/labels)** - Complete label reference

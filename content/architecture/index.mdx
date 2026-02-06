@@ -1,0 +1,86 @@
+# Architecture Overview
+
+doklab follows a layered architecture that transforms declarative configurations into running containers.
+
+import { Cards } from 'nextra/components'
+
+## Design Philosophy
+
+doklab uses a three-stage transformation pipeline:
+
+```
+Declarative Input → Resolved State → Actionable Output
+```
+
+1. **Declarative Input**: User-defined configurations with patterns, references, and abstractions (glob patterns, secret references, simplified labels)
+2. **Resolved State**: Concrete, expanded representations (resolved globs, cloned repos, tracked SHAs)
+3. **Actionable Output**: Provider-specific configurations consumed by external tools (Docker, Traefik, TSDProxy, Kopia)
+
+## High-Level Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      doklab config                          │
+│  ~/.doklab/config.yaml                                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ project: A  │  │ project: B  │  │ project: C  │         │
+│  │ source: git │  │ source: git │  │ source: git │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    doklab processing                        │
+│  • Clone/pull git repos                                     │
+│  • Parse doklab.* labels                                    │
+│  • Resolve secrets from SOPS/Vault                          │
+│  • Expand to provider-specific labels                       │
+│  • Wire services to doklab network                          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Platform Services                         │
+│  ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌─────────┐ │
+│  │ Traefik/ │ │Sablier │ │ Ofelia │ │Nautical│ │ Beszel  │ │
+│  │ TSDProxy │ │        │ │        │ │        │ │         │ │
+│  └──────────┘ └────────┘ └────────┘ └────────┘ └─────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Docker Engine                             │
+│  Running containers with resolved config                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Architecture Layers
+
+| Layer | Purpose | Principle |
+|-------|---------|-----------|
+| **CLI** | User interaction, argument parsing | Thin wrappers, no business logic |
+| **Daemon** | Service lifecycle (install, start, stop) | Infrastructure wrapper |
+| **App** | Orchestration, workflows, business rules | Coordinates libraries |
+| **Libs** | Single-purpose utilities | Reusable, focused, testable |
+| **External** | Third-party systems | Abstracted behind interfaces |
+
+## Detailed Documentation
+
+<Cards>
+  <Cards.Card title="CLI Architecture" href="/docs/architecture/cli" />
+  <Cards.Card title="Dataflows" href="/docs/architecture/dataflows" />
+</Cards>
+
+## Key Directories
+
+| Path | Purpose |
+|------|---------|
+| `internal/config/` | Configuration structs and loading |
+| `internal/app/` | Core business logic and orchestration |
+| `internal/daemon/` | Background service lifecycle |
+| `internal/labels/` | Label parsing and expansion |
+| `internal/docker/` | Docker Compose execution |
+| `internal/vals/` | Secret resolution via vals |
+| `internal/sync/` | GitOps polling |
+| `internal/backup/` | Backup monitoring and Kopia |
+| `internal/infra/` | Infrastructure stack definitions |

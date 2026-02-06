@@ -1,0 +1,87 @@
+# Introduction
+
+**doklab is a platform layer for Docker Compose that brings PaaS conveniences to self-hosted deployments.**
+
+It takes standard Compose files from Git repos and adds the platform capabilities you'd otherwise build yourself: routing, TLS, secrets, scheduled jobs, scale-to-zero, backups, and monitoring.
+
+## The Problem
+
+Running Docker Compose in production requires gluing together a dozen tools:
+
+- Traefik or Nginx for routing
+- Let's Encrypt for TLS
+- Secrets management (SOPS, Vault, etc.)
+- Cron for scheduled tasks
+- Backup scripts
+- Monitoring dashboards
+
+Each project re-implements this. Configuration lives in different places. There's no unified view.
+
+## The Solution
+
+doklab provides a **single declarative config** that references Git repos containing Compose files. Projects declare their needs via labels:
+
+```yaml filename="docker-compose.yml" showLineNumbers
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.route.host: api
+      doklab.secret.env.API_KEY: ref+sops://secrets.yaml#/api_key
+      doklab.lifecycle.idle: 30m
+      doklab.job.cleanup: "0 2 * * *"
+      doklab.job.cleanup.command: "rm -rf /tmp/*"
+      doklab.backup.enable: "true"
+```
+
+doklab translates these into Traefik rules, secret injection, Sablier config, and Ofelia jobs. The platform handles the plumbing.
+
+## Key Principles
+
+1. **Compose-native**: No new DSL. If you know Compose, you know doklab.
+2. **Git-native**: Projects are Git repos. Sync pulls changes and redeploys.
+3. **Label-driven**: Consumers declare intent, platform handles implementation.
+4. **Batteries included**: Routing, TLS, secrets, jobs, backups, monitoring out of the box.
+5. **Two network modes**: Tailscale for private access, Cloudflare for public.
+
+## Who is it for?
+
+- Small teams running 5-50 services on a single powerful server
+- Developers who want Heroku/Railway-like convenience without vendor lock-in
+- Anyone who finds Kubernetes overkill but raw Compose insufficient
+
+## Feature Overview
+
+| Capability | How it works |
+|------------|--------------|
+| **Routing** | `doklab.route.host` labels → Traefik or TSDProxy |
+| **TLS** | Automatic via Let's Encrypt (Cloudflare DNS) or Tailscale certs |
+| **Secrets** | `doklab.secret.*` labels → SOPS/Vault resolution via vals |
+| **Scale-to-zero** | `doklab.lifecycle.idle` → Sablier integration |
+| **Auto-restart** | `doklab.lifecycle.autoheal` → Autoheal container |
+| **Cron jobs** | `doklab.job.*` labels → Ofelia scheduler |
+| **Backups** | `doklab.backup.*` labels → Nautical → Kopia repository |
+| **Monitoring** | Beszel dashboard for resource metrics |
+| **Logging** | Opt-in persistent logging with VictoriaLogs + LogsQL |
+
+## Quick Comparison
+
+| | doklab | Raw Compose | Nomad | Kubernetes |
+|---|--------|-------------|-------|------------|
+| Learning curve | Low | None | Medium | High |
+| Config format | Compose YAML | Compose YAML | HCL | YAML manifests |
+| Multi-node | No | No | Yes | Yes |
+| Routing built-in | Yes | No | No | Ingress |
+| Secrets built-in | Yes | No | Vault | Secrets API |
+| Scale-to-zero | Yes | No | No | KEDA |
+| Backups built-in | Yes | No | No | No |
+
+## Next Steps
+
+import { Cards } from 'nextra/components'
+
+<Cards>
+  <Cards.Card title="Getting Started" href="/docs/getting-started" />
+  <Cards.Card title="Features" href="/docs/features" />
+  <Cards.Card title="Reference" href="/docs/reference" />
+</Cards>

@@ -1,0 +1,241 @@
+# Scheduled Jobs
+
+Run recurring tasks using cron schedules with Ofelia, Docker's job scheduler.
+
+import { Tabs } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+## Overview
+
+doklab supports three types of scheduled jobs:
+
+1. **Service-level jobs** - Run commands inside existing containers
+2. **Project-level jobs** - Spawn new containers for jobs
+3. **Infrastructure-level jobs** - Global jobs defined in config.yaml
+
+All jobs are orchestrated by [Ofelia](https://github.com/mcuadros/ofelia), which reads Docker labels to configure schedules.
+
+## Service-Level Jobs
+
+Run commands inside a running container:
+
+```yaml filename="docker-compose.yml" {7-9}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.route.host: api
+
+      # Cleanup job - runs daily at 2 AM
+      doklab.job.cleanup: "0 2 * * *"
+      doklab.job.cleanup.command: "rm -rf /tmp/*"
+```
+
+### Job Labels
+
+| Label | Description |
+|-------|-------------|
+| `doklab.job.{name}` | Cron schedule |
+| `doklab.job.{name}.command` | Command to execute |
+| `doklab.job.{name}.user` | User to run as |
+| `doklab.job.{name}.tty` | Allocate TTY (`true`/`false`) |
+
+### Multiple Jobs
+
+Add multiple jobs to a single service:
+
+```yaml {5-13}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      # Cleanup job
+      doklab.job.cleanup: "0 2 * * *"
+      doklab.job.cleanup.command: "rm -rf /tmp/*"
+
+      # Health check job
+      doklab.job.health: "*/5 * * * *"
+      doklab.job.health.command: "curl -f http://localhost:8080/health"
+
+      # Report generation
+      doklab.job.report: "0 9 * * 1"
+      doklab.job.report.command: "python generate_report.py"
+```
+
+## Project-Level Jobs
+
+Define jobs in your project configuration that spawn new containers:
+
+```yaml filename="~/.doklab/config.yaml" {6-12}
+projects:
+  myapp:
+    source: https://github.com/your-org/myapp
+    jobs:
+      backup:
+        type: run
+        schedule: "@daily"
+        image: postgres:16
+        command: "pg_dump -h db -U postgres mydb > /backup/dump.sql"
+        volume:
+          - /var/backups/myapp:/backup
+        network: myapp
+```
+
+### Job Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | `run` (container) |
+| `schedule` | string | Cron expression or preset |
+| `image` | string | Docker image to use |
+| `command` | string | Command to execute |
+| `volume` | list | Volume mounts |
+| `network` | string | Docker network (default: project name) |
+| `user` | string | User to run as |
+
+## Infrastructure-Level Jobs
+
+Global jobs defined in config.yaml:
+
+```yaml filename="~/.doklab/config.yaml" {1-15}
+jobs:
+  system-cleanup:
+    type: run
+    schedule: "0 0 * * 0"  # Weekly
+    image: alpine:latest
+    command: "sh -c 'docker system prune -f'"
+    volume:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Local job (runs on host)
+  log-rotation:
+    type: local
+    schedule: "0 0 * * *"
+    command: "logrotate /etc/logrotate.conf"
+    dir: /etc
+
+allowHostJobs: true  # Required for type: local
+```
+
+<Callout type="warning">
+  Setting `allowHostJobs: true` allows jobs to run commands directly on the host. Use with caution in production environments.
+</Callout>
+
+## Cron Schedule Format
+
+<Tabs items={['Standard Cron', 'Presets', 'Extended']}>
+  <Tabs.Tab>
+    ```
+    ┌───────────── minute (0-59)
+    │ ┌───────────── hour (0-23)
+    │ │ ┌───────────── day of month (1-31)
+    │ │ │ ┌───────────── month (1-12)
+    │ │ │ │ ┌───────────── day of week (0-6, Sunday=0)
+    │ │ │ │ │
+    * * * * *
+    ```
+
+    **Examples:**
+    - `0 2 * * *` - Daily at 2:00 AM
+    - `*/15 * * * *` - Every 15 minutes
+    - `0 9 * * 1-5` - Weekdays at 9:00 AM
+    - `0 0 1 * *` - First day of each month
+  </Tabs.Tab>
+  <Tabs.Tab>
+    | Preset | Equivalent |
+    |--------|------------|
+    | `@yearly` | `0 0 1 1 *` |
+    | `@monthly` | `0 0 1 * *` |
+    | `@weekly` | `0 0 * * 0` |
+    | `@daily` | `0 0 * * *` |
+    | `@hourly` | `0 * * * *` |
+    | `@every 1h30m` | Every 1.5 hours |
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Ofelia supports additional expressions:
+
+    - `@every 30s` - Every 30 seconds
+    - `@every 5m` - Every 5 minutes
+    - `@every 2h` - Every 2 hours
+  </Tabs.Tab>
+</Tabs>
+
+## Generated Labels
+
+doklab translates job labels to Ofelia format:
+
+```yaml
+# Input
+doklab.job.cleanup: "0 2 * * *"
+doklab.job.cleanup.command: "rm -rf /tmp/*"
+
+# Output
+ofelia.enabled: "true"
+ofelia.job-exec.myapp-api-cleanup.schedule: "0 2 * * *"
+ofelia.job-exec.myapp-api-cleanup.command: "rm -rf /tmp/*"
+```
+
+## Built-in Jobs
+
+doklab includes default infrastructure jobs:
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| CVE Scanner | Configurable | Scans images for vulnerabilities |
+| Heartbeat | `@hourly` | Health check ping |
+
+Configure the scanner schedule:
+
+```yaml filename="~/.doklab/config.yaml"
+scanner:
+  schedule: "0 0 * * *"  # Daily at midnight
+```
+
+## Viewing Job Output
+
+Check Ofelia logs for job execution:
+
+```bash
+docker logs ofelia
+```
+
+Example output:
+
+```
+scheduler.go:34 > New job registered
+job.go:58 > Running job "myapp-api-cleanup"
+job.go:67 > Job "myapp-api-cleanup" completed (exit code: 0)
+```
+
+## Troubleshooting
+
+### Job not running
+
+1. Verify Ofelia is running:
+   ```bash
+   docker ps | grep ofelia
+   ```
+
+2. Check labels are applied:
+   ```bash
+   docker inspect myapp-api | jq '.[0].Config.Labels | with_entries(select(.key | startswith("ofelia")))'
+   ```
+
+3. Verify schedule format
+
+### Job fails
+
+1. Check Ofelia logs:
+   ```bash
+   docker logs ofelia --tail 100
+   ```
+
+2. Test command manually:
+   ```bash
+   docker exec myapp-api rm -rf /tmp/*
+   ```
+
+## Next Steps
+
+- **[Lifecycle](/docs/features/lifecycle)** - Scale-to-zero and auto-restart
+- **[Reference/Labels](/docs/reference/labels)** - Complete label reference

@@ -1,0 +1,230 @@
+# Installation
+
+Install doklab using one of the methods below.
+
+import { Tabs } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+## Prerequisites
+
+doklab requires the following tools to be installed:
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **Docker** | Container runtime | [docker.com](https://docs.docker.com/get-docker/) |
+| **vals** | Secret resolution | See below |
+| **sops** | Secret encryption | See below |
+| **kopia** | Backup management (optional) | [kopia.io/docs/installation](https://kopia.io/docs/installation/) |
+
+<Callout type="info">
+  **Note:** `age` CLI is NOT required - doklab uses the age library internally.
+</Callout>
+
+### Installing vals
+
+vals has no apt/dnf package. Install from GitHub releases:
+
+<Tabs items={['macOS', 'Linux', 'Go']}>
+  <Tabs.Tab>
+    ```bash
+    brew install vals
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    # Download latest release (requires curl + jq)
+    VALS_VERSION=$(curl -s https://api.github.com/repos/helmfile/vals/releases/latest | grep tag_name | cut -d '"' -f 4)
+    curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin vals
+
+    # Or use task (if cloned)
+    task setup:linux
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    go install github.com/helmfile/vals@latest
+    ```
+    <Callout type="warning">
+      `go install` places binaries in `$GOPATH/bin` (default: `~/go/bin`).
+      Ensure this is in your PATH: `export PATH=$PATH:$(go env GOPATH)/bin`
+    </Callout>
+  </Tabs.Tab>
+</Tabs>
+
+### Installing sops
+
+<Tabs items={['macOS', 'Linux (apt)', 'Linux (binary)']}>
+  <Tabs.Tab>
+    ```bash
+    brew install sops
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    # Download .deb from releases
+    SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d '"' -f 4)
+    curl -sLO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops_${SOPS_VERSION#v}_amd64.deb"
+    sudo dpkg -i sops_${SOPS_VERSION#v}_amd64.deb
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d '"' -f 4)
+    sudo curl -sL "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64" -o /usr/local/bin/sops
+    sudo chmod +x /usr/local/bin/sops
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+### Verify dependencies
+
+```bash
+vals version
+sops --version
+```
+
+## Binary Installation
+
+<Tabs items={['macOS', 'Linux', 'From Source']}>
+  <Tabs.Tab>
+    ### macOS (Homebrew)
+
+    ```bash
+    brew tap manuschillerdev/doklab
+    brew install doklab
+    ```
+
+    Or download directly:
+
+    ```bash
+    # Apple Silicon
+    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-darwin-arm64 -o /usr/local/bin/doklab
+    chmod +x /usr/local/bin/doklab
+
+    # Intel
+    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-darwin-amd64 -o /usr/local/bin/doklab
+    chmod +x /usr/local/bin/doklab
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ### Linux
+
+    ```bash
+    # AMD64
+    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-linux-amd64 -o /usr/local/bin/doklab
+    chmod +x /usr/local/bin/doklab
+
+    # ARM64
+    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-linux-arm64 -o /usr/local/bin/doklab
+    chmod +x /usr/local/bin/doklab
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ### From Source
+
+    Requires Go 1.21+:
+
+    ```bash
+    go install github.com/manuschillerdev/doklab@latest
+    ```
+
+    Or build from source:
+
+    ```bash
+    git clone https://github.com/manuschillerdev/doklab.git
+    cd doklab
+    go build -o doklab ./cmd/doklab
+    sudo mv doklab /usr/local/bin/
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Verify Installation
+
+```bash
+doklab --version
+```
+
+You should see output like:
+
+```
+doklab version 0.1.0
+```
+
+## Initialize doklab
+
+<Steps>
+### Choose your network mode
+
+<Tabs items={['Tailscale', 'Cloudflare']}>
+  <Tabs.Tab>
+    Get a Tailscale auth key from [your admin console](https://login.tailscale.com/admin/settings/keys):
+
+    ```bash
+    doklab init --domain example.ts.net --ts-authkey tskey-auth-xxxxx
+    ```
+
+    This creates:
+    - `~/.doklab/config.yaml` - Main configuration
+    - `~/.doklab/secrets.yaml` - Encrypted secrets (auto-encrypted with sops)
+    - `~/.doklab/age.key` - Encryption key for SOPS
+
+    By default, `doklab init` also starts the infrastructure. Use `--no-start` to skip:
+    ```bash
+    doklab init --domain example.ts.net --ts-authkey tskey-auth-xxxxx --no-start
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Create a Cloudflare API token with these permissions:
+    - Zone: DNS: Edit
+    - Zone: Zone: Read
+    - Account: Cloudflare Tunnel: Edit
+
+    ```bash
+    doklab init --cloudflare --domain example.com --cf-token YOUR_TOKEN --acme-email you@example.com
+    ```
+
+    This also:
+    - Creates a Cloudflare Tunnel
+    - Configures DNS records
+    - Auto-encrypts secrets with sops
+    - Starts infrastructure (unless `--no-start`)
+  </Tabs.Tab>
+</Tabs>
+
+<Callout type="warning">
+  Never commit unencrypted secrets! The `age.key` file should be backed up securely and never shared.
+</Callout>
+
+### Verify the installation
+
+```bash
+doklab doctor
+```
+
+This checks all dependencies and infrastructure status.
+</Steps>
+
+## Directory Structure
+
+After initialization, doklab creates:
+
+```
+~/.doklab/
+├── config.yaml          # Main configuration
+├── secrets.yaml         # Encrypted secrets (SOPS)
+├── state.yaml           # Resolved project state
+├── age.key              # SOPS encryption key
+├── .sops.yaml           # SOPS configuration
+├── repos/               # Cloned Git repositories
+├── backups/             # Nautical backup destination
+├── traefik/             # Traefik dynamic config (Cloudflare mode)
+│   └── dynamic/
+└── tsdproxy/            # TSDProxy config (Tailscale mode)
+```
+
+## Next Steps
+
+- **[Quickstart](/docs/getting-started/quickstart)** - Deploy your first project
+- **[Configuration](/docs/getting-started/configuration)** - Learn about config options

@@ -1,0 +1,318 @@
+# Monitoring
+
+Built-in monitoring with Beszel for system metrics and opt-in persistent logging with Fluent Bit + VictoriaLogs.
+
+import { Callout } from 'nextra/components'
+
+## Overview
+
+doklab includes built-in monitoring:
+
+| Tool | Purpose | Access |
+|------|---------|--------|
+| **Beszel** | System and container metrics | `monitor.{domain}` |
+| **VictoriaLogs** | Persistent log storage (opt-in) | `logs.{domain}` |
+
+Beszel is deployed automatically with `doklab infra up`. Persistent logging requires explicit opt-in.
+
+## Beszel (Metrics Dashboard)
+
+Beszel provides a lightweight monitoring dashboard for:
+
+- CPU usage
+- Memory usage
+- Disk I/O
+- Network traffic
+- Container statistics
+
+### Access
+
+- **Tailscale**: `https://monitor.doklab.your-tailnet.ts.net`
+- **Cloudflare**: `https://monitor.example.com`
+
+### Features
+
+- Real-time graphs
+- Historical data retention
+- Alert configuration
+- Multi-host support (with agents)
+
+### Configuration
+
+Beszel runs with default settings. The doklab infrastructure stack configures:
+
+```yaml
+labels:
+  doklab.route.host: monitor
+  doklab.route.port: "8090"
+```
+
+## Persistent Logging (Opt-in)
+
+<Callout type="info">
+  Persistent logging is **opt-in** to keep the default footprint minimal.
+  Without it, use `docker logs` or lazydocker for basic log access.
+</Callout>
+
+For historical log queries with a proper query language, enable persistent logging:
+
+### Configuration
+
+```yaml filename="~/.doklab/config.yaml"
+daemon:
+  logging:
+    enabled: true    # opt-in, default false
+    retention: 7d    # log retention period
+```
+
+### Resource Usage
+
+The logging stack uses approximately:
+- **Fluent Bit**: ~64-128 MB RAM
+- **VictoriaLogs**: ~128-256 MB RAM
+- Total: ~150-350 MB RAM depending on log volume
+
+### How It Works
+
+1. **Fluent Bit** tails Docker container logs from `/var/lib/docker/containers/`
+2. Logs are shipped to **VictoriaLogs** over HTTP
+3. Query logs using **LogsQL** via CLI or web UI
+
+### Access
+
+When enabled:
+- **Tailscale**: `https://logs.doklab.your-tailnet.ts.net`
+- **Cloudflare**: `https://logs.example.com`
+
+## Command-Line Access
+
+Query logs using the `doklab logs` command:
+
+```bash
+# All logs from the last hour
+doklab logs '*'
+
+# Logs from a specific container
+doklab logs '_stream:{container_name="myapp-1"}'
+
+# Search for errors
+doklab logs 'error'
+
+# Logs from last 30 minutes
+doklab logs --since 30m 'error'
+
+# Limit results
+doklab logs --limit 100 'warning OR error'
+```
+
+### LogsQL Examples
+
+VictoriaLogs uses LogsQL for queries:
+
+```bash
+# Exact match
+doklab logs 'error'
+
+# Case-insensitive search
+doklab logs 'error'i
+
+# Multiple terms (AND)
+doklab logs 'error AND database'
+
+# Multiple terms (OR)
+doklab logs 'error OR warning'
+
+# Filter by container
+doklab logs '_stream:{container_name="myapp-api-1"}'
+
+# Filter by time range
+doklab logs --since 24h 'timeout'
+```
+
+See [LogsQL documentation](https://docs.victoriametrics.com/victorialogs/logsql/) for the full query language reference.
+
+## Basic Log Access (Without Persistent Logging)
+
+Without persistent logging enabled, use standard Docker tools:
+
+```bash
+# View container logs
+docker logs myapp-api-1
+
+# Follow logs
+docker logs -f myapp-api-1
+
+# Last 100 lines
+docker logs --tail 100 myapp-api-1
+```
+
+Or use [lazydocker](https://github.com/jesseduffield/lazydocker) for a TUI experience.
+
+## Project Status
+
+Check the status of your projects:
+
+```bash
+doklab ps
+```
+
+Output:
+
+```
+PROJECT  SERVICE  STATUS    PORTS     CPU    MEM
+myapp    api      running   8080      2.3%   128MB
+myapp    db       running   5432      0.5%   256MB
+myapp    redis    running   6379      0.1%   32MB
+other    web      running   3000      1.2%   96MB
+```
+
+## System Report
+
+Generate a comprehensive system report:
+
+```bash
+doklab report
+```
+
+This shows:
+- doklab version and configuration
+- Docker version and status
+- Running projects and services
+- Infrastructure stack status
+- Resource usage summary
+
+## Health Monitoring
+
+### Container Health
+
+For containers with health checks, monitor their status:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+```
+NAMES           STATUS
+myapp-api-1     Up 2 hours (healthy)
+myapp-db-1      Up 2 hours (healthy)
+myapp-redis-1   Up 2 hours
+```
+
+### Infrastructure Health
+
+Check infrastructure services:
+
+```bash
+doklab infra status
+```
+
+```
+SERVICE       STATUS    VERSION
+traefik       running   v3.2
+sablier       running   v1.7
+ofelia        running   v3.0
+nautical      running   latest
+beszel        running   latest
+autoheal      running   latest
+```
+
+With logging enabled, you'll also see:
+```
+fluentbit     running   3.2
+victorialogs  running   v1.5.0
+```
+
+## Alerts (Coming Soon)
+
+<Callout>
+  Alert configuration is on the roadmap. Currently, monitoring is observation-only.
+</Callout>
+
+## Troubleshooting
+
+### Beszel not showing data
+
+1. Verify Beszel is running:
+   ```bash
+   docker ps | grep beszel
+   ```
+
+2. Check for errors:
+   ```bash
+   docker logs doklab-beszel-1
+   ```
+
+### Logging not working
+
+1. Verify logging is enabled in config:
+   ```yaml
+   daemon:
+     logging:
+       enabled: true
+   ```
+
+2. Check containers are running:
+   ```bash
+   docker ps | grep -E 'victorialogs|fluentbit'
+   ```
+
+3. Check Fluent Bit logs:
+   ```bash
+   docker logs doklab-fluentbit-1
+   ```
+
+### High resource usage
+
+If monitoring tools consume too many resources:
+
+1. Beszel has minimal overhead by design
+2. Reduce log retention period in config
+3. Disable persistent logging if not needed
+
+## Customization
+
+### Log Retention
+
+Configure retention in `config.yaml`:
+
+```yaml
+daemon:
+  logging:
+    enabled: true
+    retention: 30d  # Keep logs for 30 days
+```
+
+### Beszel Data Retention
+
+Configure data retention in Beszel's settings after first login.
+
+## Integration with External Tools
+
+### Prometheus/Grafana
+
+While doklab doesn't include Prometheus by default, you can add it:
+
+```yaml filename="docker-compose.yml"
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    labels:
+      doklab.route.host: prometheus
+```
+
+### External Log Aggregation
+
+If you prefer a different log solution, disable doklab logging and use your own:
+
+```yaml filename="docker-compose.yml"
+services:
+  loki:
+    image: grafana/loki:latest
+    labels:
+      doklab.route.host: loki
+```
+
+## Next Steps
+
+- **[Architecture](/docs/architecture)** - Understand how doklab works
+- **[Reference/CLI](/docs/reference/cli)** - Command reference

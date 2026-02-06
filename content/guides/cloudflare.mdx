@@ -1,0 +1,406 @@
+# Cloudflare Setup Guide
+
+Complete guide for setting up doklab with Cloudflare Tunnel for public internet access.
+
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+## Overview
+
+Cloudflare mode exposes your services to the public internet through Cloudflare Tunnel. Traffic is proxied through Cloudflare's network with DDoS protection and caching.
+
+**Best for:**
+- Public websites and APIs
+- Production deployments
+- Services requiring custom domains
+- High-traffic applications
+
+## Prerequisites
+
+- [Cloudflare](https://cloudflare.com) account
+- Domain added to Cloudflare (nameservers pointing to Cloudflare)
+- API token with required permissions
+
+## Setup
+
+<Steps>
+### Create API Token
+
+1. Go to [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+2. Click "Create Token" → "Create Custom Token"
+3. Configure the token with these **required permissions**:
+   - **Account > Cloudflare Tunnel > Edit** - For creating and managing tunnels
+   - **Zone > DNS > Edit** - For creating DNS records
+   - **Zone > Zone > Read** - For reading zone information
+   - **Zone > SSL and Certificates > Edit** - For creating Origin CA certificates
+4. Set "Account Resources" to include your account
+5. Set "Zone Resources" to include your domain
+6. Copy the token (you won't be able to see it again)
+
+<Callout type="warning">
+The token must have all four permissions listed above. Missing permissions will cause initialization to fail.
+</Callout>
+
+### Initialize doklab
+
+Choose your TLS certificate strategy:
+
+#### Option A: Origin Certificates (Default, Recommended)
+
+Uses Cloudflare Origin CA certificates (15-year validity). Best for most use cases.
+
+```bash
+doklab init --cloudflare \
+  --domain example.com \
+  --cf-token YOUR_TOKEN \
+  --acme-email admin@example.com \
+  --tls-strategy origin
+```
+
+**Cloudflare SSL/TLS Mode:** Set to **"Full"** or **"Full (strict)"** in Cloudflare dashboard.
+
+#### Option B: Let's Encrypt Only
+
+Uses Let's Encrypt with DNS-01 challenge (90-day auto-renewal). No Origin CA certificates.
+
+```bash
+doklab init --cloudflare \
+  --domain example.com \
+  --cf-token YOUR_TOKEN \
+  --acme-email admin@example.com \
+  --tls-strategy letsencrypt
+```
+
+**Cloudflare SSL/TLS Mode:** Set to **"Full (strict)"** for best security.
+
+<Callout type="warning">
+**TLS Strategy Comparison:**
+- **origin** (default): 15-year certs, less renewal overhead, Cloudflare-specific
+- **letsencrypt**: 90-day certs, auto-renewal, publicly trusted, requires DNS API calls
+
+Origin certificates require the **"Zone > SSL and Certificates > Edit"** permission. Let's Encrypt mode does not.
+</Callout>
+
+Or use environment variables:
+
+```bash
+export DOKLAB_CF_TOKEN=YOUR_TOKEN
+export ACME_EMAIL=admin@example.com
+doklab init --cloudflare --domain example.com --tls-strategy origin
+```
+
+This automatically:
+- Validates API token permissions
+- Discovers your Cloudflare account and zone IDs
+- Creates a Cloudflare Tunnel with encrypted connection
+- Generates certificates based on TLS strategy:
+  - **origin**: Creates 15-year Origin CA certs at `~/.doklab/traefik/certs/`
+  - **letsencrypt**: Configures DNS-01 ACME challenge for auto-renewal
+- Configures tunnel ingress routing to Traefik
+- Creates DNS records (`*.example.com` and `example.com`)
+- Saves encrypted secrets to `~/.doklab/secrets.yaml`
+- Starts infrastructure containers
+
+<Callout type="info">
+Secrets are automatically encrypted with SOPS using age encryption. Infrastructure starts automatically unless you pass `--no-start`.
+</Callout>
+</Steps>
+
+## How It Works
+
+```
+Internet
+    │
+    ▼
+┌───────────────────┐
+│    Cloudflare     │
+│  (Edge Network)   │
+│  *.example.com    │
+└───────────────────┘
+    │
+    ▼ (Encrypted Tunnel)
+┌───────────────────┐
+│   cloudflared     │
+│  (Tunnel Client)  │
+└───────────────────┘
+    │
+    ▼
+┌───────────────────┐
+│     Traefik       │
+│ (Reverse Proxy)   │
+└───────────────────┘
+    │
+    ▼
+┌───────────────────┐
+│    Container      │
+│    (port 8080)    │
+└───────────────────┘
+```
+
+## Service URLs
+
+Services are accessible at:
+
+```
+https://{service}.{domain}
+```
+
+For example:
+- `https://api.example.com`
+- `https://logs.example.com`
+- `https://monitor.example.com`
+
+## Configuration
+
+```yaml filename="~/.doklab/config.yaml"
+domain: example.com
+
+network:
+  mode: cloudflare
+
+cloudflare:
+  tunnel_id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  acme_email: admin@example.com
+```
+
+## Exposing Services
+
+Add route labels to your services:
+
+```yaml filename="docker-compose.yml" {5-6}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.route.host: api
+      doklab.route.port: "8080"
+```
+
+### Multiple Routes
+
+Cloudflare mode supports multiple routes per service:
+
+```yaml {5-10}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.route.host: api
+      doklab.route.port: "8080"
+      doklab.route.admin.host: admin
+      doklab.route.admin.port: "9000"
+```
+
+### Custom Domains
+
+Use absolute hostnames for custom domains:
+
+```yaml
+labels:
+  doklab.route.host: api.custom-domain.com
+```
+
+<Callout type="info">
+  Custom domains must be configured in Cloudflare with appropriate DNS records.
+</Callout>
+
+## TLS Certificates
+
+doklab supports two TLS certificate strategies:
+
+### Origin Certificate Strategy (Default)
+
+1. **Origin Certificates**: 15-year Cloudflare Origin CA cert for `*.example.com`
+   - Saved to `~/.doklab/traefik/certs/origin-cert.pem` and `origin-key.pem`
+   - Configured via Traefik dynamic file provider
+   - Used for Cloudflare→Traefik encrypted tunnel
+2. **Let's Encrypt** (optional): Additional certs via DNS-01 for custom domains beyond `*.example.com`
+3. **Edge Certificates**: Cloudflare provides visitor→Cloudflare certificates automatically
+
+**Cloudflare SSL/TLS Mode:** "Full" or "Full (strict)"
+
+### Let's Encrypt Strategy
+
+1. **Let's Encrypt**: All certificates issued via DNS-01 ACME challenge
+   - 90-day validity with automatic renewal
+   - Publicly trusted certificates
+   - No Origin CA certificates created
+2. **Edge Certificates**: Cloudflare provides visitor→Cloudflare certificates automatically
+
+**Cloudflare SSL/TLS Mode:** "Full (strict)" (required for publicly trusted certs)
+
+## DNS Configuration
+
+During initialization, doklab creates:
+
+```
+*.example.com  CNAME  tunnel-id.cfargotunnel.com
+example.com    CNAME  tunnel-id.cfargotunnel.com
+```
+
+## Cloudflare Features
+
+### Page Rules (optional)
+
+Add page rules in Cloudflare dashboard:
+- Cache static assets
+- Force HTTPS
+- Custom SSL settings
+
+### Zero Trust (optional)
+
+Protect routes with Cloudflare Access:
+
+1. Go to Cloudflare Zero Trust
+2. Create an Access Application
+3. Add authentication policies
+
+## Scale-to-Zero
+
+Cloudflare mode supports scale-to-zero via Sablier:
+
+```yaml {5}
+labels:
+  doklab.route.host: api
+  doklab.lifecycle.idle: 30m  # Stop after 30 minutes idle
+```
+
+When a request comes to an idle service, Sablier:
+1. Shows a loading page
+2. Starts the container
+3. Redirects when ready
+
+## Troubleshooting
+
+### API Token Validation Failed
+
+**Error:** `token validation failed: invalid API token or insufficient permissions`
+
+**Solution:**
+1. Verify your token has all required permissions:
+   - Account > Cloudflare Tunnel > Edit
+   - Zone > DNS > Edit
+   - Zone > Zone > Read
+   - Zone > SSL and Certificates > Edit
+2. Ensure "Account Resources" includes your account
+3. Ensure "Zone Resources" includes your domain
+4. Regenerate the token if permissions were added after creation
+
+### Tunnel not connecting
+
+**Symptoms:** `cloudflared` container exits or shows connection errors
+
+**Solution:**
+1. Check cloudflared status:
+   ```bash
+   docker logs cloudflared
+   ```
+
+2. Verify tunnel token in secrets:
+   ```bash
+   sops -d ~/.doklab/secrets.yaml | grep tunnel_token
+   ```
+
+3. Ensure tunnel exists in Cloudflare dashboard (Networks > Tunnels)
+
+### Origin Certificate Errors
+
+**Error:** `unable to load certificate` or `certificate signed by unknown authority`
+
+**Solution:**
+1. Verify Origin CA certificates exist:
+   ```bash
+   ls -la ~/.doklab/traefik/certs/
+   # Should show: origin-cert.pem (644) and origin-key.pem (600)
+   ```
+
+2. Check Traefik can read certificates:
+   ```bash
+   docker exec traefik ls -la /certs/
+   ```
+
+3. Verify Traefik dynamic config exists:
+   ```bash
+   cat ~/.doklab/traefik/dynamic/origin-certs.yml
+   ```
+
+4. Check Traefik logs for certificate loading:
+   ```bash
+   docker logs traefik | grep -i certificate
+   ```
+
+5. Re-initialize if certificates are missing:
+   ```bash
+   doklab init --cloudflare --domain example.com --cf-token TOKEN --acme-email EMAIL
+   ```
+
+### TLS Handshake Errors
+
+**Error:** Cloudflare shows "SSL handshake failed" or ERR_SSL_PROTOCOL_ERROR
+
+**Solution:**
+1. Check Cloudflare SSL/TLS setting (should be **"Full"** or **"Full (strict)"**, NOT "Flexible"):
+   - Go to SSL/TLS → Overview in Cloudflare dashboard
+   - Set to "Full" to validate origin certificates
+
+2. Verify Traefik is listening on port 443:
+   ```bash
+   docker ps | grep traefik
+   # Should show 0.0.0.0:443->443/tcp
+   ```
+
+3. Check Traefik logs for TLS errors:
+   ```bash
+   docker logs traefik
+   ```
+
+### DNS not resolving
+
+**Symptoms:** Domain doesn't resolve or shows "DNS_PROBE_FINISHED_NXDOMAIN"
+
+**Solution:**
+1. Check Cloudflare DNS records in dashboard
+2. Verify nameservers point to Cloudflare:
+   ```bash
+   dig NS example.com
+   ```
+3. Wait for DNS propagation (usually < 5 minutes, up to 24h for new domains)
+4. Test with Cloudflare's DNS:
+   ```bash
+   dig @1.1.1.1 example.com
+   ```
+
+### 502 Bad Gateway
+
+**Symptoms:** Cloudflare shows "502 Bad Gateway" error
+
+**Solution:**
+1. Container not running - check status:
+   ```bash
+   doklab ps
+   ```
+2. Wrong port - verify `doklab.route.port` matches container's exposed port
+3. Container not on doklab network - check labels:
+   ```bash
+   docker inspect <container> | grep doklab
+   ```
+4. Traefik can't reach container - check Traefik logs:
+   ```bash
+   docker logs traefik | grep -i error
+   ```
+
+### Let's Encrypt Certificate Failures (Custom Domains)
+
+**Error:** ACME challenge fails for custom domains
+
+**Solution:**
+1. Verify `CF_DNS_API_TOKEN` is set in Traefik:
+   ```bash
+   docker inspect traefik | grep CF_DNS_API_TOKEN
+   ```
+2. Check ACME logs:
+   ```bash
+   docker logs traefik | grep -i acme
+   ```
+3. Ensure DNS propagation completed for custom domain
+4. Verify Cloudflare API token has DNS > Edit permission

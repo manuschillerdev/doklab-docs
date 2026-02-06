@@ -1,0 +1,195 @@
+# Routing
+
+Expose your services to the network with automatic TLS certificates and load balancing.
+
+import { Tabs } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+## Basic Routing
+
+Add routing to any service with two labels:
+
+```yaml filename="docker-compose.yml" {6-7}
+services:
+  api:
+    image: myapp-api:latest
+    ports:
+      - "8080"
+    labels:
+      doklab.route.host: api
+      doklab.route.port: "8080"
+```
+
+This exposes your service at:
+- **Tailscale**: `https://api.doklab.your-tailnet.ts.net`
+- **Cloudflare**: `https://api.example.com`
+
+## Route Labels
+
+| Label | Description | Default |
+|-------|-------------|---------|
+| `doklab.route.host` | Hostname (relative or absolute) | - |
+| `doklab.route.port` | Service port | First exposed port |
+| `doklab.route.{name}.host` | Named route hostname | - |
+| `doklab.route.{name}.port` | Named route port | - |
+
+## Multiple Routes (Cloudflare Only)
+
+<Callout type="warning">
+  Multiple routes per service are only supported in **Cloudflare mode**. Tailscale mode (TSDProxy) supports one route per service.
+</Callout>
+
+Expose a service on multiple hostnames:
+
+```yaml filename="docker-compose.yml" {5-10}
+services:
+  api:
+    image: myapp-api:latest
+    labels:
+      # Default route
+      doklab.route.host: api
+      doklab.route.port: "8080"
+
+      # Additional named routes
+      doklab.route.admin.host: admin
+      doklab.route.admin.port: "9000"
+
+      doklab.route.metrics.host: metrics.internal.example.com
+      doklab.route.metrics.port: "9090"
+```
+
+## Hostname Formats
+
+<Tabs items={['Relative', 'Absolute']}>
+  <Tabs.Tab>
+    Relative hostnames are appended to your base domain:
+
+    ```yaml
+    doklab.route.host: api
+    # Becomes: api.example.com
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Absolute hostnames (with dots) are used as-is:
+
+    ```yaml
+    doklab.route.host: api.custom-domain.com
+    # Becomes: api.custom-domain.com
+    ```
+
+    <Callout>
+      For absolute hostnames in Cloudflare mode, ensure the domain is configured in your Cloudflare account.
+    </Callout>
+  </Tabs.Tab>
+</Tabs>
+
+## How It Works
+
+### Tailscale Mode (TSDProxy)
+
+```yaml
+# Input
+doklab.route.host: api
+doklab.route.port: "8080"
+
+# Generated labels
+tsdproxy.enable: "true"
+tsdproxy.name: "api"
+tsdproxy.port.1: "443/https:8080/http"
+```
+
+TSDProxy automatically:
+- Registers the service on your Tailnet
+- Obtains Tailscale MagicDNS certificates
+- Proxies HTTPS traffic to your container
+
+### Cloudflare Mode (Traefik)
+
+```yaml
+# Input
+doklab.route.host: api
+doklab.route.port: "8080"
+
+# Generated labels
+traefik.enable: "true"
+traefik.http.routers.api.rule: "Host(`api.example.com`)"
+traefik.http.routers.api.entrypoints: "websecure"
+traefik.http.routers.api.tls: "true"
+traefik.http.routers.api.tls.certresolver: "letsencrypt"
+traefik.http.services.api.loadbalancer.server.port: "8080"
+```
+
+Traefik automatically:
+- Creates a router rule for the hostname
+- Obtains Let's Encrypt certificates via DNS challenge
+- Load balances traffic to your container
+
+## External Routes
+
+Route traffic to services running outside Docker:
+
+```yaml filename="~/.doklab/config.yaml"
+routes:
+  plex:
+    target: http://192.168.1.100:32400
+    tls_skip_verify: false
+    port: 443
+
+  homeassistant:
+    target: http://192.168.1.50:8123
+    tls_skip_verify: true  # Allow self-signed certs
+```
+
+External routes support:
+- Non-Docker services on your network
+- Services on other machines
+- Self-signed certificate backends
+
+## Network Wiring
+
+Services with routes are automatically joined to the `doklab` network:
+
+```yaml
+# Added automatically
+networks:
+  doklab:
+    external: true
+```
+
+This allows Traefik/TSDProxy to communicate with your containers.
+
+## Troubleshooting
+
+### Route not accessible
+
+1. Check if the service is running:
+   ```bash
+   doklab ps
+   ```
+
+2. Verify the route was processed:
+   ```bash
+   doklab show myproject
+   ```
+
+3. Check Traefik dashboard (Cloudflare mode):
+   ```
+   http://localhost:8080/api/dashboard
+   ```
+
+### TLS certificate issues
+
+For Cloudflare mode, ensure:
+- Your Cloudflare API token has DNS edit permissions
+- The domain is active in Cloudflare
+- Check Traefik logs: `docker logs traefik`
+
+For Tailscale mode:
+- Verify TSDProxy is running: `docker logs tsdproxy`
+- Check your Tailscale auth key hasn't expired
+
+## Next Steps
+
+- **[Secrets](/docs/features/secrets)** - Inject secrets into your services
+- **[Guides/Traefik](/docs/guides/traefik)** - Advanced Traefik configuration
+- **[Reference/Labels](/docs/reference/labels)** - Complete label reference

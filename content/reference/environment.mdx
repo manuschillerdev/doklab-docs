@@ -1,0 +1,136 @@
+# Environment Variables
+
+Environment variables that affect doklab behavior.
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOKLAB_DIR` | Configuration directory | `~/.doklab` |
+| `DOKLAB_CONFIG` | Path to config file | `~/.doklab/config.yaml` |
+
+## Authentication
+
+### Tailscale
+
+| Variable | Description |
+|----------|-------------|
+| `TS_AUTHKEY` | Tailscale auth key for initialization |
+
+### Cloudflare
+
+| Variable | Description |
+|----------|-------------|
+| `CF_API_TOKEN` | Cloudflare API token for initialization |
+| `CF_DNS_API_TOKEN` | Cloudflare DNS API token (for Traefik ACME) |
+
+## Secret Resolution
+
+### SOPS
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SOPS_AGE_KEY` | Age private key (inline) | - |
+| `SOPS_AGE_KEY_FILE` | Path to age key file | `~/.doklab/age.key` |
+
+If neither is set, doklab uses `~/.doklab/age.key`.
+
+### Vault
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_ADDR` | Vault server address |
+| `VAULT_TOKEN` | Vault authentication token |
+| `VAULT_NAMESPACE` | Vault namespace (Enterprise) |
+
+### AWS
+
+| Variable | Description |
+|----------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key |
+| `AWS_REGION` | AWS region |
+| `AWS_PROFILE` | AWS profile name |
+
+### GCP
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON |
+
+### Azure
+
+| Variable | Description |
+|----------|-------------|
+| `AZURE_TENANT_ID` | Azure tenant ID |
+| `AZURE_CLIENT_ID` | Azure client ID |
+| `AZURE_CLIENT_SECRET` | Azure client secret |
+
+## Docker
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOCKER_HOST` | Docker daemon socket | `unix:///var/run/docker.sock` |
+| `COMPOSE_PROJECT_NAME` | Override project name | - |
+
+## Infrastructure Services
+
+These are set internally by doklab for infrastructure containers:
+
+### TSDProxy (Tailscale mode)
+
+| Variable | Description |
+|----------|-------------|
+| `TSDPROXY_HOSTNAME` | Hostname on tailnet |
+| `TSDPROXY_DATADIR` | Tailscale state directory |
+| `TSDPROXY_CONFIGFILE` | TSDProxy config file |
+| `TS_AUTHKEY_REF` | SOPS reference to auth key |
+
+### Traefik (Cloudflare mode)
+
+| Variable | Description |
+|----------|-------------|
+| `ACME_EMAIL` | Email for Let's Encrypt |
+| `CF_TOKEN_REF` | SOPS reference to Cloudflare token |
+
+### Cloudflared
+
+| Variable | Description |
+|----------|-------------|
+| `TUNNEL_TOKEN_REF` | SOPS reference to tunnel token |
+
+### General
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOMAIN` | Base domain | from config |
+| `SCANNER_SCHEDULE` | CVE scanner cron schedule | `0 0 * * *` |
+| `TZ` | Timezone | `UTC` |
+
+## Usage Example
+
+Set environment variables before running doklab:
+
+```bash
+# Set config directory
+export DOKLAB_DIR=/opt/doklab
+
+# Set Tailscale auth key
+export TS_AUTHKEY=tskey-auth-xxxxx
+
+# Initialize
+doklab init --ts-authkey $TS_AUTHKEY
+```
+
+Or inline:
+
+```bash
+SOPS_AGE_KEY_FILE=/path/to/key.txt doklab up myapp
+```
+
+## Precedence
+
+1. Command-line flags (highest priority)
+2. Environment variables
+3. Config file values
+4. Default values (lowest priority)

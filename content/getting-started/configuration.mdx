@@ -1,0 +1,271 @@
+# Configuration
+
+doklab uses two main configuration files: `config.yaml` for project definitions and `secrets.yaml` for sensitive values.
+
+import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+
+## Configuration Files
+
+| File | Purpose | Location |
+|------|---------|----------|
+| `config.yaml` | Projects, routes, jobs, settings | `~/.doklab/config.yaml` |
+| `secrets.yaml` | API tokens, auth keys (SOPS encrypted) | `~/.doklab/secrets.yaml` |
+| `state.yaml` | Resolved state (auto-generated) | `~/.doklab/state.yaml` |
+
+## config.yaml Structure
+
+```yaml filename="~/.doklab/config.yaml" showLineNumbers
+# Base domain for all services
+domain: example.com
+
+# Network configuration
+network:
+  mode: tailscale  # or "cloudflare"
+
+# Tailscale-specific settings
+tailscale:
+  hostname: doklab           # Machine name on tailnet
+  tailnet: example.ts.net    # Auto-discovered
+
+# Cloudflare-specific settings (when mode: cloudflare)
+cloudflare:
+  tunnel_id: xxxxxxxx-xxxx-xxxx-xxxx
+  acme_email: admin@example.com
+
+# CVE/SBOM scanning schedule
+scanner:
+  schedule: "0 0 * * *"      # Daily at midnight
+
+# Daemon settings for GitOps sync
+daemon:
+  sync:
+    enabled: true            # Enable GitOps polling
+    interval: 60s            # Poll interval
+  backup:
+    enabled: false           # Backup verification
+    interval: 1h
+
+# Allow local job execution (security opt-in)
+allowHostJobs: false
+
+# Project definitions
+projects:
+  myapp:
+    source: https://github.com/your-org/myapp
+    branch: main
+    compose_path: docker-compose.yml
+    overlays:
+      - docker-compose.prod.yml
+    enabled: true
+
+# External routes (non-Docker services)
+routes:
+  plex:
+    target: http://192.168.1.100:32400
+    tls_skip_verify: false
+
+# Infrastructure-level scheduled jobs
+jobs:
+  weekly-cleanup:
+    type: run
+    schedule: "0 0 * * 0"
+    image: alpine:latest
+    command: "echo 'Weekly cleanup'"
+```
+
+## Project Configuration
+
+Each project in the `projects` section supports:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source` | string | required | Git URL or `file://` path |
+| `branch` | string | `main` | Git branch to track |
+| `compose_path` | string | `docker-compose.yml` | Path to compose file |
+| `overlays` | list | `[]` | Additional compose files to merge |
+| `enabled` | bool | `true` | Deploy this project |
+| `jobs` | map | `{}` | Project-level scheduled jobs |
+
+### Source Types
+
+<Tabs items={['Git HTTPS', 'Git SSH', 'Local Path']}>
+  <Tabs.Tab>
+    ```yaml
+    projects:
+      myapp:
+        source: https://github.com/your-org/myapp
+        branch: main
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```yaml
+    projects:
+      myapp:
+        source: git@github.com:your-org/myapp.git
+        branch: main
+    ```
+
+    <Callout type="info">
+      For SSH sources, ensure your SSH key is available to the doklab process.
+    </Callout>
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```yaml
+    projects:
+      myapp:
+        source: file:///home/user/projects/myapp
+        # branch is ignored for file:// sources
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+### Compose Overlays
+
+Overlays are merged in order using the Docker Compose merge spec:
+
+```yaml
+projects:
+  myapp:
+    source: https://github.com/your-org/myapp
+    compose_path: docker-compose.yml
+    overlays:
+      - docker-compose.prod.yml      # Applied second
+      - docker-compose.monitoring.yml # Applied third
+```
+
+This is equivalent to:
+
+```bash
+docker compose -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.monitoring.yml \
+  up
+```
+
+### Glob Patterns
+
+Use glob patterns for multi-project setups:
+
+```yaml filename="config.yaml"
+projects:
+  services:
+    source: file:///home/user/projects
+    compose_path: "*/docker-compose.yml"  # Matches all subdirectories
+```
+
+This expands in `state.yaml` to individual projects:
+
+```yaml filename="state.yaml"
+projects:
+  services-api:
+    source: file:///home/user/projects
+    compose_path: api/docker-compose.yml
+  services-web:
+    source: file:///home/user/projects
+    compose_path: web/docker-compose.yml
+  services-worker:
+    source: file:///home/user/projects
+    compose_path: worker/docker-compose.yml
+```
+
+## External Routes
+
+Route traffic to non-Docker services:
+
+```yaml
+routes:
+  plex:
+    target: http://192.168.1.100:32400
+    tls_skip_verify: false  # Allow self-signed certs
+    port: 443               # External port
+```
+
+<Callout>
+  External routes are useful for exposing services running on other machines in your network through doklab's routing layer.
+</Callout>
+
+## Infrastructure Jobs
+
+Define jobs that run on the infrastructure level:
+
+```yaml
+jobs:
+  backup:
+    type: run              # Spawn a container
+    schedule: "@daily"     # Cron expression
+    image: alpine:latest
+    command: "backup.sh"
+    volume:
+      - /data:/backup
+    network: doklab
+
+  local-cleanup:
+    type: local            # Run on host (requires allowHostJobs: true)
+    schedule: "0 0 * * 0"
+    command: "rm -rf /tmp/*"
+    dir: /tmp
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | `run` (container) or `local` (host command) |
+| `schedule` | string | Cron expression or preset (`@daily`, `@hourly`) |
+| `image` | string | Docker image (required for `type: run`) |
+| `command` | string | Command to execute |
+| `volume` | list | Volume mounts |
+| `network` | string | Docker network (default: `doklab`) |
+| `user` | string | User to run as |
+| `dir` | string | Working directory (for `type: local`) |
+
+## secrets.yaml Structure
+
+Secrets are stored in SOPS-encrypted YAML:
+
+```yaml filename="~/.doklab/secrets.yaml"
+# Encrypted with SOPS
+cloudflare:
+  token: ENC[AES256_GCM,data:v1.0z5dfo2...]
+  tunnel_token: ENC[AES256_GCM,data:InxVY2lz...]
+
+tailscale:
+  authkey: ENC[AES256_GCM,data:tskey-auth...]
+
+# Custom secrets for your projects
+myapp:
+  db_password: ENC[AES256_GCM,data:super-secret...]
+  api_key: ENC[AES256_GCM,data:key-123...]
+```
+
+### Encrypting Secrets
+
+After editing secrets, re-encrypt:
+
+```bash
+# First time
+sops -e -i ~/.doklab/secrets.yaml
+
+# Edit encrypted file
+sops ~/.doklab/secrets.yaml
+```
+
+<Callout type="warning">
+  The `age.key` file at `~/.doklab/age.key` is your encryption key. Back it up securely and never commit it to Git!
+</Callout>
+
+## Environment Variables
+
+Override configuration with environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `DOKLAB_DIR` | Config directory (default: `~/.doklab`) |
+| `TS_AUTHKEY` | Tailscale auth key |
+| `CF_API_TOKEN` | Cloudflare API token |
+| `SOPS_AGE_KEY_FILE` | Path to age key file |
+
+## Next Steps
+
+- **[Features](/docs/features)** - Explore all doklab capabilities
+- **[Reference/Config](/docs/reference/config)** - Complete configuration reference
+- **[Reference/Labels](/docs/reference/labels)** - All available labels

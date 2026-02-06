@@ -1,0 +1,229 @@
+# Backups
+
+Automated container backups with Nautical and Kopia for deduplicated, versioned storage.
+
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+
+## Overview
+
+doklab's backup system consists of two components:
+
+1. **Nautical** - Monitors containers and orchestrates backups
+2. **Kopia** - Stores deduplicated snapshots with versioning
+
+```
+┌─────────────┐     ┌───────────┐     ┌────────┐
+│  Container  │ ──▶ │  Nautical │ ──▶ │  Kopia │
+│  (volumes)  │     │ (backup)  │     │ (repo) │
+└─────────────┘     └───────────┘     └────────┘
+```
+
+## Enabling Backups
+
+Add backup labels to services with important data:
+
+```yaml filename="docker-compose.yml" {8-10}
+services:
+  postgres:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    labels:
+      doklab.backup.enable: "true"
+      doklab.backup.schedule: "0 3 * * *"  # 3 AM daily
+
+volumes:
+  pgdata:
+```
+
+## Backup Labels
+
+All `doklab.backup.*` labels are translated to `nautical-backup.*` labels:
+
+| Label | Description | Default |
+|-------|-------------|---------|
+| `doklab.backup.enable` | Enable backups for this container | `false` |
+| `doklab.backup.schedule` | Cron schedule | - |
+| `doklab.backup.stop-before-backup` | Stop container before backup | `false` |
+| `doklab.backup.pre-backup-command` | Command to run before backup | - |
+| `doklab.backup.post-backup-command` | Command to run after backup | - |
+
+<Callout>
+  Any `doklab.backup.*` label is automatically translated to `nautical-backup.*`. This means new Nautical features work immediately without doklab updates.
+</Callout>
+
+## Database Backups
+
+For databases, use pre-backup commands to dump data:
+
+### PostgreSQL
+
+```yaml {8-9}
+services:
+  postgres:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgbackup:/backup
+    labels:
+      doklab.backup.enable: "true"
+      doklab.backup.pre-backup-command: "pg_dump -U postgres mydb > /backup/dump.sql"
+      doklab.backup.schedule: "0 3 * * *"
+
+volumes:
+  pgdata:
+  pgbackup:
+```
+
+### MySQL/MariaDB
+
+```yaml {8-9}
+services:
+  mysql:
+    image: mysql:8
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - mysqlbackup:/backup
+    labels:
+      doklab.backup.enable: "true"
+      doklab.backup.pre-backup-command: "mysqldump -u root -p$MYSQL_ROOT_PASSWORD --all-databases > /backup/dump.sql"
+      doklab.backup.schedule: "0 3 * * *"
+```
+
+### MongoDB
+
+```yaml {8-9}
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongodata:/data/db
+      - mongobackup:/backup
+    labels:
+      doklab.backup.enable: "true"
+      doklab.backup.pre-backup-command: "mongodump --out /backup/dump"
+      doklab.backup.schedule: "0 3 * * *"
+```
+
+## Backup Workflow
+
+<Steps>
+### Nautical detects scheduled backup
+
+Based on the cron schedule, Nautical triggers a backup.
+
+### Pre-backup command runs (optional)
+
+If `pre-backup-command` is set, it runs inside the container.
+
+### Container stops (optional)
+
+If `stop-before-backup` is true, the container is stopped.
+
+### Volumes are backed up
+
+Nautical creates a backup of all mounted volumes.
+
+### Kopia snapshot
+
+doklab's file watcher detects the backup and creates a Kopia snapshot:
+
+```bash
+kopia snapshot create /path/to/backup --tags container:postgres
+```
+
+### Post-backup command runs (optional)
+
+If `post-backup-command` is set, it runs inside the container.
+
+### Container restarts (if stopped)
+
+The container is restarted if it was stopped.
+</Steps>
+
+## Managing Backups
+
+### List snapshots
+
+```bash
+doklab backup list
+```
+
+Output:
+
+```
+SNAPSHOT ID                              TIME                 SIZE    CONTAINER
+abc123def456789...                       2024-01-15 03:00:00  1.2 GB  postgres
+def456abc789012...                       2024-01-14 03:00:00  1.2 GB  postgres
+ghi789def012345...                       2024-01-13 03:00:00  1.1 GB  postgres
+```
+
+### Restore a snapshot
+
+```bash
+doklab backup restore abc123def456789 /restore/path
+```
+
+### Start the backup watcher
+
+The backup watcher monitors Nautical's output and creates Kopia snapshots:
+
+```bash
+doklab backup watch
+```
+
+<Callout type="info">
+  The backup watcher runs automatically when using `doklab daemon`. You only need to run it manually for one-off backup verification.
+</Callout>
+
+## Storage Locations
+
+| Path | Purpose |
+|------|---------|
+| `~/.doklab/backups/` | Nautical backup destination |
+| `~/.doklab/kopia/` | Kopia repository |
+
+## Retention Policy
+
+Configure Kopia's retention policy:
+
+```bash
+kopia policy set --global \
+  --keep-latest 7 \
+  --keep-daily 7 \
+  --keep-weekly 4 \
+  --keep-monthly 12
+```
+
+## Troubleshooting
+
+### Backup not running
+
+1. Check Nautical logs:
+   ```bash
+   docker logs nautical
+   ```
+
+2. Verify labels are applied:
+   ```bash
+   docker inspect postgres | jq '.[0].Config.Labels'
+   ```
+
+3. Check cron schedule format
+
+### Kopia snapshot fails
+
+1. Verify Kopia repository:
+   ```bash
+   kopia repository status
+   ```
+
+2. Check available disk space
+
+3. Review Kopia logs
+
+## Next Steps
+
+- **[Jobs](/docs/features/jobs)** - Scheduled job configuration
+- **[Reference/Labels](/docs/reference/labels)** - Complete label reference

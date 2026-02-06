@@ -1,0 +1,245 @@
+# Lifecycle Management
+
+Control container lifecycle with scale-to-zero and automatic restart capabilities.
+
+import { Callout } from 'nextra/components'
+
+## Overview
+
+doklab provides two lifecycle features:
+
+1. **Scale-to-Zero** - Stop idle containers to save resources (Cloudflare mode only)
+2. **Auto-restart** - Automatically restart unhealthy containers
+
+## Scale-to-Zero (Sablier)
+
+<Callout type="warning">
+  Scale-to-zero is only available in **Cloudflare mode** as it requires Traefik middleware integration.
+</Callout>
+
+Stop containers after a period of inactivity:
+
+```yaml filename="docker-compose.yml" {5}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.lifecycle.idle: 30m  # Stop after 30 minutes idle
+      doklab.route.host: api
+```
+
+### How It Works
+
+1. Traefik routes requests through Sablier middleware
+2. Sablier tracks request activity per service
+3. After the idle timeout, containers are stopped
+4. On next request, Sablier shows a waiting page
+5. Container starts and request completes
+
+```
+Request ──▶ Traefik ──▶ Sablier ──▶ Container
+                          │
+                          ▼
+                   (idle timeout)
+                          │
+                          ▼
+                   Container stops
+                          │
+            Next request  │
+                          ▼
+                   Sablier starts
+                   container + shows
+                   waiting page
+```
+
+### Idle Timeout Format
+
+| Value | Meaning |
+|-------|---------|
+| `30s` | 30 seconds |
+| `5m` | 5 minutes |
+| `1h` | 1 hour |
+| `30m` | 30 minutes |
+
+### Generated Labels
+
+```yaml
+# Input
+doklab.lifecycle.idle: 30m
+
+# Output
+sablier.enable: "true"
+sablier.group: "api"
+traefik.http.routers.api.middlewares: "api-sablier"
+traefik.http.middlewares.api-sablier.plugin.sablier.names: "myapp-api-1"
+traefik.http.middlewares.api-sablier.plugin.sablier.group: "api"
+traefik.http.middlewares.api-sablier.plugin.sablier.sessionDuration: "30m"
+traefik.http.middlewares.api-sablier.plugin.sablier.dynamic.displayName: "api"
+traefik.http.middlewares.api-sablier.plugin.sablier.dynamic.theme: "hacker-terminal"
+```
+
+### Loading Page
+
+When a stopped service receives a request, Sablier shows a themed loading page:
+
+- **Theme**: `hacker-terminal` (default)
+- Shows service name and estimated startup time
+- Auto-redirects when service is ready
+
+### Best Practices
+
+- Use for development/staging environments
+- Set longer timeouts for services with slow startup
+- Don't use for services that need to be always-on
+- Consider startup time impact on user experience
+
+## Auto-Restart (Autoheal)
+
+Automatically restart containers that become unhealthy:
+
+```yaml filename="docker-compose.yml" {5-8}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.lifecycle.autoheal: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### Requirements
+
+For autoheal to work, your container must have a **healthcheck** defined either in:
+
+1. The Dockerfile
+2. The docker-compose.yml (as shown above)
+
+### How It Works
+
+1. Docker monitors container health via the healthcheck
+2. If health check fails `retries` times, container is marked unhealthy
+3. Autoheal detects unhealthy containers
+4. Container is restarted automatically
+
+### Health Check Configuration
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `test` | Command to run | - |
+| `interval` | Time between checks | 30s |
+| `timeout` | Max time for check | 30s |
+| `retries` | Failures before unhealthy | 3 |
+| `start_period` | Initial grace period | 0s |
+
+### Common Health Checks
+
+**HTTP endpoint:**
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+```
+
+**TCP connection:**
+```yaml
+healthcheck:
+  test: ["CMD", "nc", "-z", "localhost", "5432"]
+```
+
+**Custom script:**
+```yaml
+healthcheck:
+  test: ["CMD", "/app/healthcheck.sh"]
+```
+
+**Using wget (if curl not available):**
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+```
+
+### Generated Labels
+
+```yaml
+# Input
+doklab.lifecycle.autoheal: "true"
+
+# Output
+autoheal: "true"
+```
+
+The Autoheal container monitors for this label.
+
+## Combining Features
+
+You can use both scale-to-zero and autoheal together:
+
+```yaml {5-6}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.lifecycle.idle: 30m
+      doklab.lifecycle.autoheal: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+```
+
+This provides:
+- Resource savings when idle
+- Automatic recovery from failures
+
+## Troubleshooting
+
+### Scale-to-zero not working
+
+1. Verify you're using Cloudflare mode:
+   ```yaml
+   network:
+     mode: cloudflare
+   ```
+
+2. Check Sablier is running:
+   ```bash
+   docker ps | grep sablier
+   ```
+
+3. Verify middleware is configured:
+   ```bash
+   docker logs traefik | grep sablier
+   ```
+
+### Container not restarting
+
+1. Verify autoheal is running:
+   ```bash
+   docker ps | grep autoheal
+   ```
+
+2. Check container health status:
+   ```bash
+   docker inspect --format='{{.State.Health.Status}}' myapp-api-1
+   ```
+
+3. View autoheal logs:
+   ```bash
+   docker logs autoheal
+   ```
+
+### Health check always failing
+
+1. Test the health check command manually:
+   ```bash
+   docker exec myapp-api-1 curl -f http://localhost:8080/health
+   ```
+
+2. Check if the endpoint is correct
+
+3. Increase `start_period` for slow-starting apps
+
+## Next Steps
+
+- **[Monitoring](/docs/features/monitoring)** - View metrics and logs
+- **[Reference/Labels](/docs/reference/labels)** - Complete label reference

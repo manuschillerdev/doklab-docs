@@ -1,0 +1,56 @@
+# Getting Started
+
+Welcome to doklab! This guide will help you get up and running with doklab in just a few minutes.
+
+## Prerequisites
+
+Before installing doklab, ensure you have:
+
+- **Docker** 24.0+ installed and running
+- **Docker Compose** v2.20+ (comes with Docker Desktop)
+- A Linux, macOS, or WSL2 environment
+- **Git** for version control
+
+## Network Mode Decision
+
+doklab supports two network modes. Choose based on your use case:
+
+import { Tabs } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+<Tabs items={['Tailscale (Private)', 'Cloudflare (Public)']}>
+  <Tabs.Tab>
+    **Best for**: Internal tools, development environments, private services
+
+    - Services accessible only via your Tailscale network
+    - Automatic HTTPS via Tailscale certificates
+    - No public internet exposure
+    - Simple setup with just an auth key
+
+    ```bash
+    doklab init --ts-authkey tskey-auth-xxxxx
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    **Best for**: Public websites, APIs, production deployments
+
+    - Services accessible from the public internet
+    - Automatic HTTPS via Let's Encrypt
+    - Cloudflare Tunnel for secure connections
+    - Requires a domain and Cloudflare account
+
+    ```bash
+    doklab init --cloudflare --domain example.com --cf-token TOKEN
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+<Callout type="info">
+  Not sure which to choose? Start with **Tailscale** for development and internal tools. You can always switch to Cloudflare later for public-facing services.
+</Callout>
+
+## What's Next?
+
+1. **[Installation](/docs/getting-started/installation)** - Install doklab on your system
+2. **[Quickstart](/docs/getting-started/quickstart)** - Deploy your first project
+3. **[Configuration](/docs/getting-started/configuration)** - Understand the config file

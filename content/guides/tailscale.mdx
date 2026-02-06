@@ -1,0 +1,210 @@
+# Tailscale Setup Guide
+
+Complete guide for setting up doklab with Tailscale for private network access.
+
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+## Overview
+
+Tailscale mode exposes your services on your private Tailscale network. Services are accessible only to devices on your tailnet.
+
+**Best for:**
+- Internal tools and dashboards
+- Development environments
+- Private APIs
+- Services that shouldn't be public
+
+## Prerequisites
+
+- [Tailscale](https://tailscale.com) account
+- Tailscale client installed on your server
+- Auth key from Tailscale admin console
+
+## Setup
+
+<Steps>
+### Get a Tailscale Auth Key
+
+1. Go to [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)
+2. Generate a new auth key:
+   - **Reusable**: Yes (for easier setup)
+   - **Ephemeral**: No (key should persist)
+   - **Tags**: Optional (for ACL control)
+3. Copy the key (starts with `tskey-auth-`)
+
+### Initialize doklab
+
+```bash
+doklab init --ts-authkey tskey-auth-xxxxx
+```
+
+Or set the environment variable:
+
+```bash
+export TS_AUTHKEY=tskey-auth-xxxxx
+doklab init
+```
+
+### Configure hostname (optional)
+
+By default, doklab uses `doklab` as the hostname. To customize:
+
+```bash
+doklab init --ts-authkey tskey-auth-xxxxx --ts-hostname myserver
+```
+
+### Encrypt secrets
+
+```bash
+sops -e -i ~/.doklab/secrets.yaml
+```
+
+### Start infrastructure
+
+```bash
+doklab infra up
+```
+</Steps>
+
+## How It Works
+
+doklab uses [TSDProxy](https://github.com/almeidapaulopt/tsdproxy) to expose services on your Tailscale network.
+
+```
+User Device (on Tailnet)
+        │
+        ▼
+┌───────────────────┐
+│    Tailscale      │
+│  (MagicDNS)       │
+│  api.doklab.ts.net│
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│     TSDProxy      │
+│  (Port Mapping)   │
+└───────────────────┘
+        │
+        ▼
+┌───────────────────┐
+│    Container      │
+│    (port 8080)    │
+└───────────────────┘
+```
+
+## Service URLs
+
+Services are accessible at:
+
+```
+https://{service}.{hostname}.{tailnet}.ts.net
+```
+
+For example, with default settings:
+- `https://api.doklab.example.ts.net`
+- `https://logs.doklab.example.ts.net`
+- `https://monitor.doklab.example.ts.net`
+
+## Configuration
+
+```yaml filename="~/.doklab/config.yaml"
+domain: example.com  # Used for service naming
+
+network:
+  mode: tailscale
+
+tailscale:
+  hostname: doklab        # Machine name on tailnet
+  tailnet: example.ts.net # Auto-discovered
+```
+
+## Exposing Services
+
+Add route labels to your services:
+
+```yaml filename="docker-compose.yml" {5-6}
+services:
+  api:
+    image: myapp:latest
+    labels:
+      doklab.route.host: api
+      doklab.route.port: "8080"
+```
+
+<Callout type="warning">
+  TSDProxy supports **one route per service**. For multiple routes, use Cloudflare mode.
+</Callout>
+
+## TLS Certificates
+
+TSDProxy automatically obtains Tailscale MagicDNS certificates:
+- Valid HTTPS certificates for `*.ts.net` domains
+- Automatically renewed
+- No configuration needed
+
+## Limitations
+
+| Feature | Tailscale Mode |
+|---------|---------------|
+| Public access | No (tailnet only) |
+| Multiple routes per service | No |
+| Scale-to-zero | No |
+| Custom domains | No |
+| TLS certificates | Automatic (MagicDNS) |
+
+## Tailscale ACLs
+
+Control access using Tailscale ACLs:
+
+```json filename="tailscale ACL"
+{
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["group:devs"],
+      "dst": ["tag:doklab:*"]
+    }
+  ],
+  "tagOwners": {
+    "tag:doklab": ["autogroup:admin"]
+  }
+}
+```
+
+## Troubleshooting
+
+### TSDProxy not connecting
+
+1. Check Tailscale status on host:
+   ```bash
+   tailscale status
+   ```
+
+2. Verify auth key:
+   ```bash
+   docker logs tsdproxy
+   ```
+
+3. Check if key is expired
+
+### Service not accessible
+
+1. Verify service is running:
+   ```bash
+   doklab ps
+   ```
+
+2. Check TSDProxy logs:
+   ```bash
+   docker logs tsdproxy
+   ```
+
+3. Verify your device is on the tailnet
+
+### DNS not resolving
+
+1. Ensure MagicDNS is enabled in Tailscale admin
+2. Wait a few minutes for DNS propagation
+3. Try direct IP access first

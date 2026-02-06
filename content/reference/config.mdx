@@ -1,0 +1,264 @@
+# Configuration Reference
+
+Complete reference for `~/.doklab/config.yaml`.
+
+## Full Schema
+
+```yaml filename="~/.doklab/config.yaml" showLineNumbers
+# Base domain for all services
+domain: example.com
+
+# Network configuration
+network:
+  mode: tailscale | cloudflare  # default: tailscale
+
+# Tailscale-specific settings
+tailscale:
+  hostname: doklab              # Machine name on tailnet
+  tailnet: example.ts.net       # Auto-discovered from Tailscale
+
+# Cloudflare-specific settings
+cloudflare:
+  tunnel_id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  acme_email: admin@example.com
+
+# CVE/SBOM scanning schedule
+scanner:
+  schedule: "0 0 * * *"         # Cron expression (default: daily midnight)
+
+# Daemon settings for background tasks
+daemon:
+  sync:
+    enabled: true               # Enable GitOps sync polling
+    interval: 60s               # Poll interval
+  backup:
+    enabled: false              # Enable backup verification
+    interval: 1h                # Verification interval
+
+# Allow local job execution (security opt-in)
+allowHostJobs: false
+
+# Project definitions
+projects:
+  project-name:
+    source: https://github.com/user/repo
+    branch: main
+    compose_path: docker-compose.yml
+    overlays:
+      - docker-compose.prod.yml
+    enabled: true
+    jobs:
+      job-name:
+        type: run
+        schedule: "@daily"
+        image: alpine:latest
+        command: "echo hello"
+
+# External routes (non-Docker services)
+routes:
+  route-name:
+    target: http://192.168.1.100:8080
+    tls_skip_verify: false
+    port: 443
+
+# Infrastructure-level scheduled jobs
+jobs:
+  job-name:
+    type: run | local
+    schedule: "0 0 * * *"
+    image: alpine:latest
+    command: "echo hello"
+    volume:
+      - /host/path:/container/path
+    network: doklab
+    user: root
+    dir: /app
+```
+
+## Root Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `domain` | string | - | Base domain for service hostnames |
+| `network` | object | - | Network configuration |
+| `tailscale` | object | - | Tailscale-specific settings |
+| `cloudflare` | object | - | Cloudflare-specific settings |
+| `scanner` | object | - | CVE scanner settings |
+| `daemon` | object | - | Background daemon settings |
+| `allowHostJobs` | bool | `false` | Allow `type: local` jobs |
+| `projects` | map | - | Project definitions |
+| `routes` | map | - | External route definitions |
+| `jobs` | map | - | Infrastructure jobs |
+
+## Network Configuration
+
+```yaml
+network:
+  mode: tailscale | cloudflare
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | string | `tailscale` | Network mode: `tailscale` or `cloudflare` |
+
+## Tailscale Settings
+
+```yaml
+tailscale:
+  hostname: doklab
+  tailnet: example.ts.net
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `hostname` | string | `doklab` | Machine name on tailnet |
+| `tailnet` | string | auto | Tailnet domain (auto-discovered) |
+
+## Cloudflare Settings
+
+```yaml
+cloudflare:
+  tunnel_id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  acme_email: admin@example.com
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tunnel_id` | string | Yes | Cloudflare Tunnel ID |
+| `acme_email` | string | Yes | Email for Let's Encrypt ACME |
+
+## Scanner Settings
+
+```yaml
+scanner:
+  schedule: "0 0 * * *"
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `schedule` | string | `0 0 * * *` | Cron expression for CVE scans |
+
+## Daemon Settings
+
+```yaml
+daemon:
+  sync:
+    enabled: true
+    interval: 60s
+  backup:
+    enabled: false
+    interval: 1h
+```
+
+### sync
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable GitOps sync polling |
+| `interval` | duration | `60s` | Poll interval |
+
+### backup
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable backup verification |
+| `interval` | duration | `1h` | Verification interval |
+
+## Project Configuration
+
+```yaml
+projects:
+  myapp:
+    source: https://github.com/user/repo
+    branch: main
+    compose_path: docker-compose.yml
+    overlays:
+      - docker-compose.prod.yml
+    enabled: true
+    jobs:
+      backup:
+        type: run
+        schedule: "@daily"
+        image: postgres:16
+        command: "pg_dump -h db -U postgres"
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source` | string | required | Git URL or `file://` path |
+| `branch` | string | `main` | Git branch to track |
+| `compose_path` | string | `docker-compose.yml` | Path to compose file (supports globs) |
+| `overlays` | list | `[]` | Additional compose files to merge |
+| `enabled` | bool | `true` | Whether to deploy this project |
+| `jobs` | map | `{}` | Project-level scheduled jobs |
+
+### Source Formats
+
+| Format | Example |
+|--------|---------|
+| HTTPS | `https://github.com/user/repo` |
+| SSH | `git@github.com:user/repo.git` |
+| SSH URL | `ssh://git@github.com/user/repo.git` |
+| Local | `file:///path/to/project` |
+
+### Glob Patterns
+
+`compose_path` supports glob patterns:
+
+```yaml
+compose_path: "*/docker-compose.yml"    # All subdirectories
+compose_path: "services/*/compose.yml"  # Specific prefix
+```
+
+## Route Configuration
+
+```yaml
+routes:
+  plex:
+    target: http://192.168.1.100:32400
+    tls_skip_verify: false
+    port: 443
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `target` | string | required | Target URL (http://host:port) |
+| `tls_skip_verify` | bool | `false` | Skip TLS verification for self-signed certs |
+| `port` | int | `443` | External HTTPS port |
+
+## Job Configuration
+
+```yaml
+jobs:
+  cleanup:
+    type: run
+    schedule: "0 0 * * 0"
+    image: alpine:latest
+    command: "rm -rf /tmp/*"
+    volume:
+      - /tmp:/tmp
+    network: doklab
+    user: root
+    dir: /app
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | string | required | `run` (container) or `local` (host) |
+| `schedule` | string | required | Cron expression or preset |
+| `image` | string | - | Docker image (required for `type: run`) |
+| `command` | string | required | Command to execute |
+| `volume` | list | `[]` | Volume mounts |
+| `network` | string | `doklab` | Docker network |
+| `user` | string | - | User to run as |
+| `dir` | string | - | Working directory (for `type: local`) |
+
+### Schedule Presets
+
+| Preset | Equivalent |
+|--------|------------|
+| `@yearly` | `0 0 1 1 *` |
+| `@monthly` | `0 0 1 * *` |
+| `@weekly` | `0 0 * * 0` |
+| `@daily` | `0 0 * * *` |
+| `@hourly` | `0 * * * *` |
