@@ -270,7 +270,7 @@ export function ConfigScrollycoding() {
   }, [activeStep])
 
   return (
-    <section className="relative py-24 bg-muted/20">
+    <section className="relative py-24 bg-muted/20 hidden lg:block">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid lg:grid-cols-3 gap-12 lg:gap-16">
           {/* Content side - scrolls with snap */}
