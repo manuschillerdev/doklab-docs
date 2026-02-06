@@ -35,13 +35,13 @@ export function Hero() {
               </div>
             </div>
           </div>
-          <div className="hidden lg:block">
+          <div className="flex justify-center lg:block">
             <Image
               src={logo}
               alt="doklab"
               width={500}
               height={500}
-              className="rounded-2xl"
+              className="rounded-2xl w-48 h-48 lg:w-[500px] lg:h-[500px]"
             />
           </div>
         </div>
