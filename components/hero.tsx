@@ -13,8 +13,7 @@ export function Hero() {
               Platform features for Docker Compose
             </h1>
             <p className="mt-6 text-pretty text-lg leading-relaxed text-muted-foreground">
-              Add routing, secrets, backups, autoheal, scale-to-zero, and GitOps to your Docker Compose apps. No new DSL
-              to learn. Just labels.
+              A Docker plugin that adds platform features like GitOps, automatic routing with TLS, external secrets, cronjobs, backups, and self-healing/auto-scaling to Docker Compose.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
               <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
