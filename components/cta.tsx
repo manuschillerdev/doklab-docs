@@ -1,5 +1,6 @@
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Terminal } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
 export function CTA() {
   return (
@@ -7,20 +8,25 @@ export function CTA() {
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="text-4xl font-bold text-foreground mb-4">Ready to level up your homelab?</h2>
         <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-          Install doklab in seconds and start adding platform features to your Docker Compose apps.
+          Join the waitlist to get early access when we launch.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-          <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            Get Started
-          </Button>
-          <Button size="lg" variant="outline" className="border-border bg-transparent text-foreground hover:bg-muted">
-            Read the Docs
+        <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto mb-4">
+          <Input
+            type="email"
+            placeholder="Enter your email"
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground"
+          />
+          <Button className="bg-accent text-accent-foreground hover:bg-accent/90 whitespace-nowrap">
+            Join Waitlist
           </Button>
         </div>
-        <div className="inline-flex items-center gap-2 px-4 py-3 rounded-lg border border-border bg-card">
-          <Terminal className="h-4 w-4 text-muted-foreground" />
-          <code className="font-mono text-sm text-foreground">curl -sSL https://get.doklab.sh | sh</code>
-        </div>
+        <Button
+          variant="link"
+          className="text-muted-foreground hover:text-foreground"
+          asChild
+        >
+          <Link href="/docs">Or read the documentation</Link>
+        </Button>
       </div>
     </section>
   )
