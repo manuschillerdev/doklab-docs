@@ -1,228 +1,92 @@
 # Installation
 
-Install doklab using one of the methods below.
-
 import { Tabs } from 'nextra/components'
-import { Steps } from 'nextra/components'
 import { Callout } from 'nextra/components'
 
-## Prerequisites
+## Quick Install (Recommended)
 
-doklab requires the following tools to be installed:
-
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| **Docker** | Container runtime | [docker.com](https://docs.docker.com/get-docker/) |
-| **vals** | Secret resolution | See below |
-| **sops** | Secret encryption | See below |
-| **kopia** | Backup management (optional) | [kopia.io/docs/installation](https://kopia.io/docs/installation/) |
-
-<Callout type="info">
-  **Note:** `age` CLI is NOT required - doklab uses the age library internally.
-</Callout>
-
-### Installing vals
-
-vals has no apt/dnf package. Install from GitHub releases:
-
-<Tabs items={['macOS', 'Linux', 'Go']}>
-  <Tabs.Tab>
-    ```bash
-    brew install vals
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```bash
-    # Download latest release (requires curl + jq)
-    VALS_VERSION=$(curl -s https://api.github.com/repos/helmfile/vals/releases/latest | grep tag_name | cut -d '"' -f 4)
-    curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin vals
-
-    # Or use task (if cloned)
-    task setup:linux
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```bash
-    go install github.com/helmfile/vals@latest
-    ```
-    <Callout type="warning">
-      `go install` places binaries in `$GOPATH/bin` (default: `~/go/bin`).
-      Ensure this is in your PATH: `export PATH=$PATH:$(go env GOPATH)/bin`
-    </Callout>
-  </Tabs.Tab>
-</Tabs>
-
-### Installing sops
-
-<Tabs items={['macOS', 'Linux (apt)', 'Linux (binary)']}>
-  <Tabs.Tab>
-    ```bash
-    brew install sops
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```bash
-    # Download .deb from releases
-    SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d '"' -f 4)
-    curl -sLO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops_${SOPS_VERSION#v}_amd64.deb"
-    sudo dpkg -i sops_${SOPS_VERSION#v}_amd64.deb
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```bash
-    SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d '"' -f 4)
-    sudo curl -sL "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64" -o /usr/local/bin/sops
-    sudo chmod +x /usr/local/bin/sops
-    ```
-  </Tabs.Tab>
-</Tabs>
-
-### Verify dependencies
+One command installs doklab and all dependencies:
 
 ```bash
-vals version
-sops --version
+curl -fsSL https://get.doklab.dev | sudo bash
 ```
 
-## Binary Installation
+This installs:
+- **doklab** - The Docker plugin
+- **Docker** - Container runtime (if not present)
+- **sops** - Secret encryption
+- **vals** - Secret resolution
+- **kopia** - Backup management
 
-<Tabs items={['macOS', 'Linux', 'From Source']}>
-  <Tabs.Tab>
-    ### macOS (Homebrew)
-
-    ```bash
-    brew tap manuschillerdev/doklab
-    brew install doklab
-    ```
-
-    Or download directly:
-
-    ```bash
-    # Apple Silicon
-    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-darwin-arm64 -o /usr/local/bin/doklab
-    chmod +x /usr/local/bin/doklab
-
-    # Intel
-    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-darwin-amd64 -o /usr/local/bin/doklab
-    chmod +x /usr/local/bin/doklab
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ### Linux
-
-    ```bash
-    # AMD64
-    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-linux-amd64 -o /usr/local/bin/doklab
-    chmod +x /usr/local/bin/doklab
-
-    # ARM64
-    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-linux-arm64 -o /usr/local/bin/doklab
-    chmod +x /usr/local/bin/doklab
-    ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ### From Source
-
-    Requires Go 1.21+:
-
-    ```bash
-    go install github.com/manuschillerdev/doklab@latest
-    ```
-
-    Or build from source:
-
-    ```bash
-    git clone https://github.com/manuschillerdev/doklab.git
-    cd doklab
-    go build -o doklab ./cmd/doklab
-    sudo mv doklab /usr/local/bin/
-    ```
-  </Tabs.Tab>
-</Tabs>
+<Callout type="info">
+  Supports Debian, Ubuntu, and derivatives. For other systems, see manual installation below.
+</Callout>
 
 ## Verify Installation
 
 ```bash
-doklab --version
+docker lab version
+docker lab doctor
 ```
 
-You should see output like:
+`doctor` checks all dependencies and shows their status.
 
-```
-doklab version 0.1.0
-```
+## Initialize
 
-## Initialize doklab
-
-<Steps>
-### Choose your network mode
-
-<Tabs items={['Tailscale', 'Cloudflare']}>
+<Tabs items={['Tailscale (Private)', 'Cloudflare (Public)']}>
   <Tabs.Tab>
-    Get a Tailscale auth key from [your admin console](https://login.tailscale.com/admin/settings/keys):
+    For private access via Tailscale mesh network:
 
     ```bash
-    doklab init --domain example.ts.net --ts-authkey tskey-auth-xxxxx
+    docker lab init --domain example.ts.net --ts-authkey tskey-auth-xxxxx
     ```
 
-    This creates:
-    - `~/.doklab/config.yaml` - Main configuration
-    - `~/.doklab/secrets.yaml` - Encrypted secrets (auto-encrypted with sops)
-    - `~/.doklab/age.key` - Encryption key for SOPS
-
-    By default, `doklab init` also starts the infrastructure. Use `--no-start` to skip:
-    ```bash
-    doklab init --domain example.ts.net --ts-authkey tskey-auth-xxxxx --no-start
-    ```
+    Get your auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys).
   </Tabs.Tab>
   <Tabs.Tab>
-    Create a Cloudflare API token with these permissions:
-    - Zone: DNS: Edit
-    - Zone: Zone: Read
-    - Account: Cloudflare Tunnel: Edit
+    For public access via Cloudflare:
 
     ```bash
-    doklab init --cloudflare --domain example.com --cf-token YOUR_TOKEN --acme-email you@example.com
+    docker lab init --cloudflare --domain example.com --cf-token YOUR_TOKEN --acme-email you@example.com
     ```
 
-    This also:
-    - Creates a Cloudflare Tunnel
-    - Configures DNS records
-    - Auto-encrypts secrets with sops
-    - Starts infrastructure (unless `--no-start`)
+    Create a token with Zone:DNS:Edit, Zone:Zone:Read, and Account:Cloudflare Tunnel:Edit permissions.
   </Tabs.Tab>
 </Tabs>
 
-<Callout type="warning">
-  Never commit unencrypted secrets! The `age.key` file should be backed up securely and never shared.
-</Callout>
+That's it. You're ready to deploy.
 
-### Verify the installation
+## Manual Installation
 
-```bash
-doklab doctor
-```
+<Tabs items={['apt (Debian/Ubuntu)', 'macOS', 'Binary']}>
+  <Tabs.Tab>
+    ```bash
+    # Add repository
+    curl -fsSL https://apt.doklab.dev/gpg | sudo gpg --dearmor -o /usr/share/keyrings/doklab.gpg
+    echo "deb [signed-by=/usr/share/keyrings/doklab.gpg] https://apt.doklab.dev stable main" | sudo tee /etc/apt/sources.list.d/doklab.list
 
-This checks all dependencies and infrastructure status.
-</Steps>
+    # Install
+    sudo apt update
+    sudo apt install doklab
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    brew tap manuschillerdev/doklab
+    brew install doklab
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    curl -L https://github.com/manuschillerdev/doklab/releases/latest/download/doklab-linux-amd64 -o /usr/local/bin/doklab
+    chmod +x /usr/local/bin/doklab
+    ```
 
-## Directory Structure
-
-After initialization, doklab creates:
-
-```
-~/.doklab/
-├── config.yaml          # Main configuration
-├── secrets.yaml         # Encrypted secrets (SOPS)
-├── state.yaml           # Resolved project state
-├── age.key              # SOPS encryption key
-├── .sops.yaml           # SOPS configuration
-├── repos/               # Cloned Git repositories
-├── backups/             # Nautical backup destination
-├── traefik/             # Traefik dynamic config (Cloudflare mode)
-│   └── dynamic/
-└── tsdproxy/            # TSDProxy config (Tailscale mode)
-```
+    <Callout type="warning">
+      Binary install requires manual dependency installation (Docker, sops, vals, kopia).
+    </Callout>
+  </Tabs.Tab>
+</Tabs>
 
 ## Next Steps
 
