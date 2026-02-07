@@ -22,7 +22,7 @@ const exampleCode = `services:
       # backups
       doklab.backup.enable: "true"`
 
-const terminalCode = `$ doklab project add github.com/user/my-service
+const terminalCode = `$ docker lab project add github.com/user/my-service
 
 ✓ Cloning repository
 ✓ Found compose.yaml
@@ -63,7 +63,7 @@ export function ExampleMobile() {
     <section className="py-12 px-6 lg:hidden">
       <div className="mx-auto max-w-2xl">
         <h2 className="text-xl font-semibold text-foreground mb-2 text-center">
-          Compose native, fully opt-in, no crappy browser UIs
+          Compose native, fully opt-in
         </h2>
         <p className="text-sm text-muted-foreground mb-6 text-center">
           Fully versionable and compose compatible
@@ -85,7 +85,13 @@ export function ExampleMobile() {
           )}
         </div>
 
-        <div className="mt-6 rounded-lg border border-border bg-card overflow-hidden">
+        <h2 className="text-xl font-semibold text-foreground mb-2 text-center mt-12">
+          It's just a Docker plugin
+        </h2>
+        <p className="text-sm text-muted-foreground mb-6 text-center">
+          No crappy browser UIs
+        </p>
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
