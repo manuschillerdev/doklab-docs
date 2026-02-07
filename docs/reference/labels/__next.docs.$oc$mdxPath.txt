@@ -1,4 +1,4 @@
 1:"$Sreact.fragment"
 2:I[342869,["/doklab-docs/_next/static/chunks/ed6893dc81bfa3ef.js","/doklab-docs/_next/static/chunks/a37aa936adc6e2a8.js"],"default"]
 3:I[63587,["/doklab-docs/_next/static/chunks/ed6893dc81bfa3ef.js","/doklab-docs/_next/static/chunks/a37aa936adc6e2a8.js"],"default"]
-0:{"buildId":"OlKBHZY7ELMJzKuYenmRN","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}
+0:{"buildId":"no6VvDdiEVaSjjl1LNfn0","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}

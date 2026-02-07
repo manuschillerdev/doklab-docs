@@ -1,3 +1,3 @@
 :HL["/doklab-docs/_next/static/chunks/6572674455a1c167.css","style"]
-:HL["/doklab-docs/_next/static/chunks/afbc98ecab663313.css","style"]
-0:{"buildId":"OlKBHZY7ELMJzKuYenmRN","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"/_not-found","paramType":null,"paramKey":"/_not-found","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+:HL["/doklab-docs/_next/static/chunks/f58d5c1d973f461a.css","style"]
+0:{"buildId":"no6VvDdiEVaSjjl1LNfn0","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"/_not-found","paramType":null,"paramKey":"/_not-found","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
