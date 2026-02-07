@@ -7,7 +7,7 @@ export function Hero() {
   return (
     <section className="relative border-b border-border bg-background px-6 py-24 md:py-32 snap-start">
       <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col-reverse gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <h1 className="text-balance font-sans text-5xl font-bold leading-tight tracking-tight text-foreground md:text-6xl">
               Platform features for Docker Compose
