@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Github } from "lucide-react"
 
 export function Header() {
   return (
@@ -11,20 +9,9 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-6">
-          <Link href="/docs" className="hidden md:block text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Documentation
           </Link>
-          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" asChild>
-            <Link
-              href="https://github.com/manuschillerdev/doklab"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2"
-            >
-              <Github className="w-4 h-4" />
-              View on GitHub
-            </Link>
-          </Button>
         </div>
       </div>
     </header>

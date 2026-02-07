@@ -1,6 +1,5 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Terminal } from "lucide-react"
 import logo from "@/public/logo.png"
 
 export function Hero() {
@@ -26,12 +25,6 @@ export function Hero() {
               >
                 View Documentation
               </Button>
-            </div>
-            <div className="mt-8 rounded-lg border border-border bg-card p-4 mx-auto lg:mx-0 max-w-fit">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Terminal className="h-4 w-4" />
-                <span className="font-mono">curl -sSL https://get.doklab.sh | sh</span>
-              </div>
             </div>
           </div>
           <div className="flex justify-center lg:block">
