@@ -1,5 +1,7 @@
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import logo from "@/public/logo.png"
 
 export function Hero() {
@@ -15,15 +17,25 @@ export function Hero() {
               A Docker plugin that adds platform features like GitOps, automatic routing with TLS, external secrets, cronjobs, backups, and self-healing/auto-scaling to Docker Compose.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-              <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                Get Started
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="bg-card border-border text-foreground placeholder:text-muted-foreground"
+                />
+                <Button size="default" className="bg-accent text-accent-foreground hover:bg-accent/90 whitespace-nowrap">
+                  Join Waitlist
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-center lg:justify-start">
               <Button
                 size="lg"
-                variant="outline"
-                className="border-border bg-transparent text-foreground hover:bg-muted"
+                variant="link"
+                className="text-muted-foreground hover:text-foreground"
+                asChild
               >
-                View Documentation
+                <Link href="/docs">View Documentation</Link>
               </Button>
             </div>
           </div>
