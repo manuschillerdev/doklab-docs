@@ -274,18 +274,20 @@ export function ConfigScrollycoding() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid lg:grid-cols-3 gap-12 lg:gap-16">
           {/* Content side - scrolls with snap */}
-          <div className="space-y-[40vh] lg:col-span-1 lg:order-2">
+          <div className="space-y-[60vh] lg:col-span-1 lg:order-2">
             {steps.map((step, index) => (
               <div
                 key={index}
                 ref={(el) => {
                   stepsRef.current[index] = el
                 }}
-                className="min-h-[40vh] flex flex-col justify-start pt-32 snap-start snap-always scroll-mt-8"
+                className="min-h-[40vh] snap-start snap-always scroll-mt-8"
               >
-                <h2 className="text-2xl font-semibold text-foreground mb-4">{step.title}</h2>
-                <div className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {step.description}
+                <div className="lg:sticky lg:top-32">
+                  <h2 className="text-2xl font-semibold text-foreground mb-4">{step.title}</h2>
+                  <div className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {step.description}
+                  </div>
                 </div>
               </div>
             ))}

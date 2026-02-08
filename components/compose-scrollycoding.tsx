@@ -60,7 +60,7 @@ services:
         }],
     },
     {
-        title: "Secrets from environment variables",
+        title: "Secret management",
         description:
             "Passwords don't belong in git. But they need to get into containers somehow.\n\ndoklab resolves secrets at deploy time from SOPS, HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager, Azure Key Vault, 1Password, Doppler, and more.\n\nWorks with labels or [[.env]] files — your compose stays compatible with local dev.",
         tabs: [
@@ -325,18 +325,20 @@ export function ComposeScrollycoding() {
             <div className="mx-auto max-w-7xl px-6">
                 <div className="grid lg:grid-cols-3 gap-12 lg:gap-16">
                     {/* Content side - scrolls with snap */}
-                    <div className="space-y-[40vh] lg:col-span-1">
+                    <div className="space-y-[60vh] lg:col-span-1">
                         {steps.map((step, index) => (
                             <div
                                 key={index}
                                 ref={(el) => {
                                     stepsRef.current[index] = el
                                 }}
-                                className="min-h-[40vh] flex flex-col justify-start pt-32 snap-start snap-always scroll-mt-8"
+                                className="min-h-[40vh] snap-start snap-always scroll-mt-8"
                             >
-                                <h2 className="text-2xl font-semibold text-foreground mb-4">{step.title}</h2>
-                                <div className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">
-                                    {parseDescription(step.description, setActiveTab)}
+                                <div className="lg:sticky lg:top-32">
+                                    <h2 className="text-2xl font-semibold text-foreground mb-4">{step.title}</h2>
+                                    <div className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                                        {parseDescription(step.description, setActiveTab)}
+                                    </div>
                                 </div>
                             </div>
                         ))}
