@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Doklab APT repository</title>
+<h1>Doklab APT repository</h1>
+<p>Debian and Ubuntu packages for amd64 and arm64.</p>
+<p>Signing key fingerprint: <code>0EA730524EECD1C1E1BA4BF9B59164E721942879</code></p>
+<p>Verify the signing key fingerprint against the Doklab installation documentation, then run:</p>
+<pre>sudo apt update
+sudo apt install ca-certificates curl
+sudo install -d -m 755 /etc/apt/keyrings
+curl -fsSL https://manuschillerdev.github.io/doklab-docs/apt/doklab.asc | sudo tee /etc/apt/keyrings/doklab.asc &gt; /dev/null
+echo 'deb [signed-by=/etc/apt/keyrings/doklab.asc] https://manuschillerdev.github.io/doklab-docs/apt stable main' | sudo tee /etc/apt/sources.list.d/doklab.list
+sudo apt update
+sudo apt install doklab</pre>
+<p>The repository includes pinned SOPS and vals dependencies. Docker is required only on daemon hosts.</p>
+</html>

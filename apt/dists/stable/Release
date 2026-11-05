@@ -1,0 +1,28 @@
+Acquire-By-Hash: yes
+Architectures: amd64 arm64
+Codename: stable
+Components: main
+Date: Thu, 05 Nov 2026 08:15:03 +0000
+Label: Doklab
+Origin: Doklab
+Suite: stable
+MD5Sum:
+ 40c614239a3566076414e8f53c4a026e             2007 main/binary-amd64/Packages
+ 2fb5d8641efda05b4046ba11d11c46ee             1013 main/binary-amd64/Packages.gz
+ 933df68caa765f43b0419fdd7a83152d             2006 main/binary-arm64/Packages
+ b7c218934c3892b861f128bccec20a20             1014 main/binary-arm64/Packages.gz
+SHA1:
+ 6aff07ed99d4b44f6d532897729ffa727502a93e             2007 main/binary-amd64/Packages
+ dd54c2cbab7117616b50d5d2d8eee3f44cd4f3a8             1013 main/binary-amd64/Packages.gz
+ eb92249a8b39fbca09e4583089971e3ce7565d4a             2006 main/binary-arm64/Packages
+ 87d0342dffb34cf64ee3324fec9c586d6d574d29             1014 main/binary-arm64/Packages.gz
+SHA256:
+ d06ac3d18b8b2687d80efba86585529bce1ac4055d2096c21ae6718f47e2ee4a             2007 main/binary-amd64/Packages
+ da374d161b608532bb6baacfa9a6a9a26cde0d8853ce17e64f018da2a5d53a18             1013 main/binary-amd64/Packages.gz
+ 0a5e9c1a1c97b8956bdb72fdc35fbb9329572a25ece507e541e069df508d2e2b             2006 main/binary-arm64/Packages
+ 85b929cb8bddcc5c4db5859d34508203da44a1c755f0ffa00463ad0f059071ed             1014 main/binary-arm64/Packages.gz
+SHA512:
+ cd3cef9be4baa11ec405cd79133a9aa44b318c24ef86acdeda1a85743e019173c9039e7ec31988153d824df7e783bbf4562aee029f97b468933b503e3bfa1854             2007 main/binary-amd64/Packages
+ f17ca50f6ac03390b2eaa7e106465fe8301c73d77bd127abcee85eee3337830eb65680d65490dd5ed058c280177af28726ae97b4e46b08d812da50c35550006d             1013 main/binary-amd64/Packages.gz
+ 4de538c00ae2947e710a3ae1e725751c4c214f873a2bf61e1eb18a089a2513d0c17ad65f551f45148200e2236425dae5381f8d37feb406c6644ba8e5cef3557e             2006 main/binary-arm64/Packages
+ a79e0d03f5e21d12d73a792bc5a1dba5d60a610c69b501d4710bc754f007c7f2885bffc21849f6e63f95f19cb7ddd22372fd22887793ba75aa5a6fffa4fdb4e5             1014 main/binary-arm64/Packages.gz
