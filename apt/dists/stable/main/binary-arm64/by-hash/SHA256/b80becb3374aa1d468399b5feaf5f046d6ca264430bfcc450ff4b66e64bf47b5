@@ -1,0 +1,86 @@
+Package: doklab
+Architecture: arm64
+Version: 0.0.9+git1793866104.1d1b14b
+Priority: optional
+Maintainer: Manuel Schiller <manuel.schiller@gmail.com>
+Installed-Size: 32000
+Depends: ca-certificates, openssh-client, sops, vals
+Recommends: kopia
+Filename: pool/main/doklab_0.0.9+git1793866104.1d1b14b_linux_arm64.deb
+Size: 11676114
+MD5sum: 3d9d60086466666f50d7f9514996d12a
+SHA1: dc04e4fa56115a95992061b18238460a5134486b
+SHA256: e0ca5610171e1da779b010041eaffe4803313620556b4f68ef827c1638c86f90
+SHA512: 48ea30f69eff8cefa2accc2a4ee20f257309346ab0aae705a0688aeb6797927cc2eef2b16834467fe954bd5e4798bad4d4631f27c5aae4eb9865ed915bc1c302
+Homepage: https://github.com/manuschillerdev/doklab
+Description: Docker-based development environments CLI
+License: MIT
+
+Package: doklab
+Architecture: arm64
+Version: 0.0.9+git1793867344.1d1b14b
+Priority: optional
+Maintainer: Manuel Schiller <manuel.schiller@gmail.com>
+Installed-Size: 32000
+Depends: ca-certificates, openssh-client, sops, vals
+Recommends: kopia
+Filename: pool/main/doklab_0.0.9+git1793867344.1d1b14b_linux_arm64.deb
+Size: 11675982
+MD5sum: 96814b67f32974313d17c3fe385ae132
+SHA1: 3e6d25f1d53a641c24312e43e5b1428361e510d3
+SHA256: 998b381b183d07657fa46c18b0e39eb5c5df15998107f797b1e0c6c984d4b669
+SHA512: 0240339184c227e0999f68f29401f7390157cb4b7ed778272164decf8a95dd04b2cf6ccfc0ed9329e3e94b4a2f3d236d7f6296c4d10293334dee8f22eaeb8eea
+Homepage: https://github.com/manuschillerdev/doklab
+Description: Docker-based development environments CLI
+License: MIT
+
+Package: doklab
+Architecture: arm64
+Version: 0.1.0
+Priority: optional
+Maintainer: Manuel Schiller <manuel.schiller@gmail.com>
+Installed-Size: 32000
+Depends: ca-certificates, init-system-helpers, openssh-client, sops, vals
+Recommends: kopia
+Filename: pool/main/doklab_0.1.0_linux_arm64.deb
+Size: 11677236
+MD5sum: 9e35de28d2dc4b7cf080b3df5e271a37
+SHA1: 4b4d49449b6866c1bba4ee76db75893107894ff8
+SHA256: 60c2e8f5e1594ff39a76712d3a30883b3ba2feb0f4a065587be57f7ccdbf9ce2
+SHA512: 89939c166fc1c9231db8687e8c3174bab8f7cf65280b07a3cba3c07429bdfecfd4c1d04a7fd1cec6da8c45669fe2d1d697ba9f8fd243a93500ce237cc1c35bb7
+Homepage: https://github.com/manuschillerdev/doklab
+Description: Docker-based development environments CLI
+License: MIT
+
+Package: sops
+Architecture: arm64
+Version: 3.13.3
+Priority: optional
+Section: utils
+Maintainer: Manu Schiller <56154253+manuschillerdev@users.noreply.github.com>
+Depends: ca-certificates
+Filename: pool/main/sops_3.13.3_arm64.deb
+Size: 9683704
+MD5sum: fd8da9e0d27cdcd8eae1c64bc81d6843
+SHA1: 4f8595f110b969c2c52d0ac80f5d1aa0bc71bf5a
+SHA256: 4ef6b3fa5227164d84a4b4f394ddf36ddc4448303b7f539c12d5f1ffae93fce0
+SHA512: a1612fada634815e4bca920537be8c917966545788573a4b59277b7fd4b59524b6cb05d20bdec0e07a47933ef752c221fb5fc86c6dfc88b362e6328b28ac8bc9
+Homepage: https://github.com/getsops/sops
+Description: sops upstream binary for Doklab
+
+Package: vals
+Architecture: arm64
+Version: 0.37.3
+Priority: optional
+Section: utils
+Maintainer: Manu Schiller <56154253+manuschillerdev@users.noreply.github.com>
+Depends: ca-certificates
+Filename: pool/main/vals_0.37.3_arm64.deb
+Size: 13546032
+MD5sum: adb5976b2094b5cf924cd8d71e884d1f
+SHA1: aa5e19d78a5b6c8c3bd73812f08e1ed4118e93b4
+SHA256: afd76a0ea3375fcca96b516b7bbf9dca5ce4bb32eeb1aa196ad674609c97428b
+SHA512: f942baef9f874a52c59ec8690b9d4955cc51b6169f52b87104d9566c298cfeef2bfe3b6fc7f131760b6e225f1f4043241d06c57683f8b37d0fe76a4f82ee6500
+Homepage: https://github.com/helmfile/vals
+Description: vals upstream binary for Doklab
+

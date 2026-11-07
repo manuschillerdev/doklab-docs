@@ -34,6 +34,24 @@ Homepage: https://github.com/manuschillerdev/doklab
 Description: Docker-based development environments CLI
 License: MIT
 
+Package: doklab
+Architecture: amd64
+Version: 0.1.0
+Priority: optional
+Maintainer: Manuel Schiller <manuel.schiller@gmail.com>
+Installed-Size: 33792
+Depends: ca-certificates, init-system-helpers, openssh-client, sops, vals
+Recommends: kopia
+Filename: pool/main/doklab_0.1.0_linux_amd64.deb
+Size: 12711008
+MD5sum: 2ef2b742cef470d5e7ae11e8a353b83a
+SHA1: d9fc964713e964c4f80fe0df6e37c0e39fbdb1b8
+SHA256: 9350d234bd06e157a3bd3a660e4fd289774ebefd1e5892cd426e239eb90fb6f7
+SHA512: 5659ccff04bb8c51f8ee328eade321153095264e320763d81e44c9ecdec7bc9778cc51f67566476570079dbc6fd9dcf2723e03d41d2c977acb6296e720d668f8
+Homepage: https://github.com/manuschillerdev/doklab
+Description: Docker-based development environments CLI
+License: MIT
+
 Package: sops
 Architecture: amd64
 Version: 3.13.3
